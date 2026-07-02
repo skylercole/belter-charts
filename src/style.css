@@ -1,0 +1,206 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  overflow: hidden;
+  background: #06080f;
+  color: #cdd6e4;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+#app {
+  position: relative;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+#map:active {
+  cursor: grabbing;
+}
+
+#loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #8899aa;
+}
+
+/* ---- planner panel ---- */
+#panel {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 280px;
+  background: rgba(10, 14, 24, 0.88);
+  border: 1px solid #1d2a3f;
+  border-radius: 8px;
+  padding: 16px;
+  backdrop-filter: blur(6px);
+}
+
+#panel h1 {
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: #f0f4fa;
+}
+#panel .accent {
+  color: #7fd4a8;
+}
+#panel .tagline {
+  color: #6d7c92;
+  font-size: 11px;
+  margin: 2px 0 14px;
+}
+
+#panel label {
+  display: block;
+  color: #8899aa;
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+#panel select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  background: #0d1422;
+  color: #cdd6e4;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font: inherit;
+}
+
+.g-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+.g-btn {
+  background: #0d1422;
+  color: #8899aa;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  padding: 6px 4px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.g-btn.active {
+  color: #06080f;
+  background: #7fd4a8;
+  border-color: #7fd4a8;
+}
+
+button.primary {
+  width: 100%;
+  background: #274668;
+  color: #e8f0fa;
+  border: 1px solid #3a628f;
+  border-radius: 4px;
+  padding: 8px;
+  font: inherit;
+  cursor: pointer;
+}
+button.primary:hover {
+  background: #2f5479;
+}
+
+.lag {
+  margin-top: 12px;
+  color: #8899aa;
+  font-size: 11px;
+}
+.lag b {
+  color: #ffd27d;
+}
+
+.result {
+  margin-top: 8px;
+}
+.result.error {
+  color: #e08a7a;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.result .row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid #16213480;
+}
+.result .row span {
+  color: #6d7c92;
+}
+.result .row b {
+  color: #e8f0fa;
+  font-weight: 500;
+}
+
+.footnote {
+  margin-top: 14px;
+  color: #55637a;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* ---- timebar ---- */
+#timebar {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(10, 14, 24, 0.88);
+  border: 1px solid #1d2a3f;
+  border-radius: 8px;
+  padding: 10px 14px;
+  backdrop-filter: blur(6px);
+}
+
+#timebar button {
+  background: none;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  color: #cdd6e4;
+  width: 34px;
+  height: 26px;
+  cursor: pointer;
+  font: inherit;
+}
+
+#timebar select {
+  background: #0d1422;
+  color: #cdd6e4;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 11px;
+}
+
+#timebar input[type="range"] {
+  flex: 1;
+  accent-color: #7fd4a8;
+}
+
+#timebar #clock {
+  color: #ffd27d;
+  white-space: nowrap;
+  font-size: 12px;
+}
