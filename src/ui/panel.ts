@@ -26,7 +26,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
 
   root.innerHTML = `
     <h1>Flip <span class="accent">&amp;</span> Burn</h1>
-    <p class="tagline">unofficial Expanse navigator · phase 0</p>
+    <p class="tagline">unofficial Expanse navigator · phase 1</p>
 
     <label>From
       <select id="origin">${options}</select>

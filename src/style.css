@@ -30,6 +30,46 @@ body,
   cursor: grabbing;
 }
 
+#scene3d {
+  position: absolute;
+  inset: 0;
+}
+#scene3d canvas {
+  display: block;
+  cursor: grab;
+}
+#scene3d canvas:active {
+  cursor: grabbing;
+}
+.label-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+.body-label {
+  pointer-events: auto;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  text-shadow: 0 0 4px #000, 0 0 2px #000;
+  opacity: 0.85;
+  user-select: none;
+  white-space: nowrap;
+}
+.body-label:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+.body-label.focused {
+  opacity: 1;
+  font-weight: 700;
+}
+.body-label.kind-station {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
 #loading {
   position: absolute;
   inset: 0;

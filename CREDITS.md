@@ -11,10 +11,16 @@ No show assets are used.
 - **astronomy-engine** by Don Cross (MIT license) — planetary positions.
   https://github.com/cosinekitty/astronomy
 
+## 3D assets
+- **433 Eros plate model** (89,398 plates) — NEAR Shoemaker MSI team, via the
+  PDS Small Bodies Node, dataset NEAR-A-5-COLLECTED-MODELS-V1.0.
+  https://sbnarchive.psi.edu/pds3/near/NEAR_A_5_COLLECTED_MODELS_V1_0/
+- **Planet, sun and Milky Way textures** — Solar System Scope texture pack,
+  CC BY 4.0. https://www.solarsystemscope.com/textures/
+- **Ceres global mosaic** — NASA/JPL-Caltech/UCLA/MPS/DLR/IDA, Dawn framing
+  camera, Photojournal PIA19606.
+  https://photojournal.jpl.nasa.gov/catalog/PIA19606
+
 ## Conventions
 - Tycho / Anderson station placement follows IanH's Expanse wargame
   calculator conventions until canon research supersedes them.
-
-(Phase 1 will add: NEAR Shoemaker Eros plate model — PDS Small Bodies Node;
-Dawn Ceres shape model and mosaic — USGS Astrogeology; planet textures —
-Solar System Scope, CC BY 4.0. Record each here as assets land.)

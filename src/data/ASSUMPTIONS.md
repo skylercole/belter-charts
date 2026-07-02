@@ -37,6 +37,20 @@ Running log of every modeling assumption, per Plan.md. Update as decisions land.
 - Open questions (Plan.md 13.2, 13.4): canonical Tycho position per era;
   whether Anderson survives into the main-timeline era.
 
+## 3D scene (Phase 1)
+- Floating origin: the focused body sits at world (0,0,0); all coordinates
+  are rewritten per frame as (heliocentric − origin) in Float64 on the CPU.
+  Logarithmic depth buffer. 1 three.js unit = 1 km.
+- Axial tilts are ignored: every planet's spin pole is rendered as ecliptic
+  north (+Z). Spin rates are real sidereal periods, but phase is arbitrary.
+  Saturn's ring is drawn in the ecliptic plane (real tilt 26.7°).
+- Eros: NEAR MSI 89,398-plate model, body-fixed frame; its +Z (true spin
+  pole) is rendered pointing at ecliptic north (real pole is ~17° off).
+  Spin period 5.27 h, arbitrary phase.
+- Ceres and the other belt bodies are spheres/ellipsoids (Ceres flattening
+  0.927, Dawn mosaic texture); no shape models in v1.
+- Skybox: Milky Way panorama, not aligned to the real galactic frame.
+
 ## Planner physics
 - Brachistochrone, constant thrust, flip at midpoint: t = 2*sqrt(d/a).
 - Straight-chord flight; gravity and origin/destination orbital velocities

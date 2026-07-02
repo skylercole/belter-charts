@@ -10,10 +10,12 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "fetch-horizons": "tsx tools/fetch-horizons.ts"
+    "fetch-horizons": "tsx tools/fetch-horizons.ts",
+    "fetch-assets": "tsx tools/fetch-assets.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",
+    "@types/three": "^0.185.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vite": "^8.1.3",
@@ -21,6 +23,7 @@
   },
   "dependencies": {
     "astronomy-engine": "^2.1.19",
+    "three": "^0.185.1",
     "zustand": "^5.0.14"
   }
 }

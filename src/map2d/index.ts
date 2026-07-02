@@ -7,7 +7,8 @@
  */
 import { BODIES, type BodyDef } from "../data/bodies";
 import type { Ephemeris } from "../ephemeris";
-import { dateToJd, jdToDate } from "../ephemeris/time";
+import { sampleOrbitPath, type OrbitPath } from "../ephemeris/orbitpath";
+import { dateToJd } from "../ephemeris/time";
 import { shipPosition, type FlightPlan } from "../planner";
 
 const AU_KM = 149_597_870.7;
@@ -15,18 +16,11 @@ const ORBIT_SAMPLES = 360;
 /** Re-sample a cached orbit path when the clock moves this far. */
 const ORBIT_CACHE_DAYS = 45;
 
-interface OrbitCache {
-  jdCenter: number;
-  /** flat [x0,y0,x1,y1,...] in km */
-  pts: Float64Array;
-  closed: boolean;
-}
-
 export class Map2D {
   private ctx: CanvasRenderingContext2D;
   private centerKm = { x: 0, y: 0 };
   private kmPerPx = (7 * AU_KM) / 400;
-  private orbitCache = new Map<string, OrbitCache>();
+  private orbitCache = new Map<string, OrbitPath>();
   private dragging = false;
   private lastPointer = { x: 0, y: 0 };
   private dpr = 1;
@@ -100,35 +94,12 @@ export class Map2D {
     ];
   }
 
-  private orbitPath(body: BodyDef, jdNow: number): OrbitCache {
+  private orbitPath(body: BodyDef, jdNow: number): OrbitPath {
     const cached = this.orbitCache.get(body.id);
     if (cached && Math.abs(cached.jdCenter - jdNow) < ORBIT_CACHE_DAYS) {
       return cached;
     }
-    const range = this.eph.coveredRange();
-    // Trace one trailing orbital period ending "now"; clamp small-body
-    // sampling to the packed coverage window.
-    let jd0 = jdNow - body.periodDays;
-    let jd1 = jdNow;
-    let closed = true;
-    if (body.kind === "smallbody" || body.station) {
-      const lo = range.jdStart + 0.01;
-      const hi = range.jdEnd - 0.01;
-      if (jd0 < lo) {
-        jd0 = lo;
-        jd1 = Math.min(lo + body.periodDays, hi);
-        closed = jd1 - jd0 >= body.periodDays * 0.999;
-      }
-      jd1 = Math.min(jd1, hi);
-    }
-    const pts = new Float64Array(ORBIT_SAMPLES * 2);
-    for (let i = 0; i < ORBIT_SAMPLES; i++) {
-      const jd = jd0 + ((jd1 - jd0) * i) / (ORBIT_SAMPLES - 1);
-      const s = this.eph.stateOf(body.id, jdToDate(jd));
-      pts[i * 2] = s.pos.x;
-      pts[i * 2 + 1] = s.pos.y;
-    }
-    const entry = { jdCenter: jdNow, pts, closed };
+    const entry = sampleOrbitPath(this.eph, body, jdNow, ORBIT_SAMPLES);
     this.orbitCache.set(body.id, entry);
     return entry;
   }
@@ -168,7 +139,7 @@ export class Map2D {
       ctx.lineWidth = 1;
       ctx.beginPath();
       for (let i = 0; i < ORBIT_SAMPLES; i++) {
-        const [x, y] = this.kmToScreen(orbit.pts[i * 2], orbit.pts[i * 2 + 1]);
+        const [x, y] = this.kmToScreen(orbit.pts[i * 3], orbit.pts[i * 3 + 1]);
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       }
       if (orbit.closed) ctx.closePath();
