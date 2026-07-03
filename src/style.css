@@ -18,6 +18,9 @@ body,
 #app {
   position: relative;
 }
+#app.riding #panel {
+  display: none;
+}
 
 #map {
   position: absolute;
@@ -192,6 +195,181 @@ button.primary.ride:hover {
 }
 #ride-hud button:hover { color: #cdd6e4; }
 #ride-hud .hud-mute.muted { color: #55637a; }
+
+/* ---- scenario + anthem rows ---- */
+.scenario-row { margin-top: 10px; }
+.anthem-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.anthem-load { display: inline-block; }
+#anthem-status { color: #7fd4a8; font-size: 10px; }
+
+/* ---- g-force vignette ---- */
+#g-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 30%,
+    rgba(20, 22, 28, 0.55) 62%,
+    rgba(8, 9, 12, 0.97) 100%
+  );
+  transition: opacity 0.5s;
+  z-index: 5;
+}
+
+/* ---- ride banners ---- */
+#ride-banner {
+  position: absolute;
+  top: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 26px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 6;
+  animation: banner-pulse 0.5s ease-in-out infinite alternate;
+}
+#ride-banner.juice {
+  color: #ff9e9e;
+  border: 1px solid #a03c3c;
+  background: rgba(80, 16, 16, 0.55);
+}
+#ride-banner.brace {
+  color: #ffd27d;
+  border: 1px solid #a07c2c;
+  background: rgba(80, 60, 10, 0.55);
+}
+#ride-banner.info {
+  color: #9fe8c0;
+  border: 1px solid #3f8563;
+  background: rgba(16, 60, 40, 0.55);
+  animation: none;
+}
+@keyframes banner-pulse {
+  from { opacity: 1; }
+  to { opacity: 0.55; }
+}
+
+/* ---- comm log ---- */
+#comm-log {
+  position: absolute;
+  left: 16px;
+  bottom: 76px;
+  width: 380px;
+  pointer-events: none;
+  z-index: 4;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.comm-line {
+  color: #8fb8d8;
+  text-shadow: 0 0 4px #000;
+  animation: comm-in 0.3s ease-out;
+}
+.comm-line:last-child { color: #cde6f8; }
+@keyframes comm-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---- cockpit ---- */
+#canopy {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.canopy-frame {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(12, 16, 24, 0.9) 0 3%, transparent 8%),
+    linear-gradient(-120deg, rgba(12, 16, 24, 0.9) 0 3%, transparent 8%),
+    linear-gradient(to top, rgba(12, 16, 24, 0.95) 0 4%, transparent 14%),
+    linear-gradient(to bottom, rgba(12, 16, 24, 0.85) 0 2%, transparent 8%);
+}
+.canopy-frame::before,
+.canopy-frame::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(60, 80, 110, 0.35);
+}
+.canopy-frame::before { left: 12%; transform: skewX(-6deg); }
+.canopy-frame::after { right: 12%; transform: skewX(6deg); }
+#canopy .reticle {
+  position: absolute;
+  color: #7fd4a8;
+  font-size: 18px;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 0 6px #000;
+  transition: opacity 0.3s;
+}
+#canopy .reticle::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 16px;
+  top: -2px;
+  font-size: 10px;
+  white-space: nowrap;
+  color: #7fd4a8cc;
+}
+#canopy .vel-tape {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #cde6f8;
+  font-size: 13px;
+  border-left: 2px solid #24354f;
+  padding-left: 10px;
+}
+#canopy .vel-tape b { font-size: 20px; }
+
+/* ---- epitaph ---- */
+#epitaph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 5, 8, 0.82);
+  z-index: 8;
+  text-align: center;
+}
+#epitaph h2 {
+  color: #e8f0fa;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+}
+#epitaph p {
+  color: #8899aa;
+  max-width: 440px;
+  line-height: 1.7;
+  margin: 0 auto 10px;
+}
+#epitaph .src { font-size: 10px; color: #55637a; }
+#epitaph button {
+  margin-top: 18px;
+  background: #274668;
+  color: #e8f0fa;
+  border: 1px solid #3a628f;
+  border-radius: 4px;
+  padding: 8px 18px;
+  font: inherit;
+  cursor: pointer;
+}
 
 #loading {
   position: absolute;

@@ -3,6 +3,8 @@ import { ROUTE_BODIES } from "../data/bodies";
 import { burnWarning, SHIP_BY_ID, SHIPS } from "../data/ships";
 import type { Ephemeris } from "../ephemeris";
 import { lightLag, planFlight } from "../planner";
+import { epsteinPlan, EPSTEIN_BURN_SEC } from "../scene/epstein";
+import { hasSavedTrack, rideMusic } from "../scene/music";
 import {
   fmtAu,
   fmtDate,
@@ -47,10 +49,20 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     <div id="result" class="result"></div>
     <button id="ride-btn" class="primary ride hidden">▶ Ride the burn</button>
 
+    <div class="scenario-row">
+      <button id="epstein-btn" class="ghost" title="story mode: the first Epstein burn">☄ Epstein's last flight</button>
+    </div>
+    <div class="anthem-row">
+      <label class="ghost anthem-load">♫ own anthem<input id="anthem-file" type="file" accept="audio/*" hidden></label>
+      <button id="anthem-clear" class="ghost hidden" title="remove custom track">✕</button>
+      <span id="anthem-status"></span>
+    </div>
+
     <p class="footnote">
       Brachistochrone, constant thrust, flip at midpoint. Gravity and orbital
       velocity ignored — negligible above ~0.1 g sustained. Planet positions:
-      astronomy-engine. Belt objects: JPL Horizons, 2340–2365.
+      astronomy-engine. Belt objects: JPL Horizons, 2340–2365. Drop an audio
+      file anywhere to ride to your own music — it never leaves your machine.
     </p>
   `;
 
@@ -117,6 +129,51 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     s.setSpeed(Math.max(days / 35, 0.02));
     s.setPlaying(true);
     s.setRide(true);
+  });
+
+  root.querySelector<HTMLButtonElement>("#epstein-btn")!.addEventListener("click", () => {
+    const s = store.getState();
+    const plan = epsteinPlan(eph, new Date(s.timeMs));
+    s.setPlan(plan);
+    s.setScenario("epstein");
+    s.setTime(plan.depart.getTime());
+    // 37 h of burn over ~40 s of wall time
+    s.setSpeed(EPSTEIN_BURN_SEC / 86_400 / 40);
+    s.setPlaying(true);
+    s.setRide(true);
+  });
+
+  // ---- bring-your-own-anthem ----
+  const anthemFile = root.querySelector<HTMLInputElement>("#anthem-file")!;
+  const anthemClear = root.querySelector<HTMLButtonElement>("#anthem-clear")!;
+  const anthemStatus = root.querySelector<HTMLSpanElement>("#anthem-status")!;
+
+  function renderAnthem(hasTrack: boolean) {
+    anthemClear.classList.toggle("hidden", !hasTrack);
+    anthemStatus.textContent = hasTrack ? "custom ♫" : "";
+  }
+  hasSavedTrack().then(renderAnthem);
+
+  async function acceptTrack(file: File) {
+    try {
+      await rideMusic.setCustomTrack(file);
+      renderAnthem(true);
+    } catch {
+      anthemStatus.textContent = "couldn't decode that file";
+    }
+  }
+  anthemFile.addEventListener("change", () => {
+    if (anthemFile.files?.[0]) acceptTrack(anthemFile.files[0]);
+  });
+  anthemClear.addEventListener("click", async () => {
+    await rideMusic.clearCustomTrack();
+    renderAnthem(false);
+  });
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith("audio/")) acceptTrack(file);
   });
 
   function renderShip() {

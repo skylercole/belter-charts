@@ -15,6 +15,10 @@ export interface AppState {
   plan: FlightPlan | null;
   /** ride-the-burn chase-cam mode; plan is guaranteed non-null while true */
   ride: boolean;
+  /** first-person view while riding */
+  cockpit: boolean;
+  /** active story scenario */
+  scenario: "epstein" | null;
   /** tightbeam pulse in flight: sim time it left the origin */
   beamStartMs: number | null;
   muted: boolean;
@@ -29,6 +33,8 @@ export interface AppState {
   setAccel(g: number): void;
   setPlan(plan: FlightPlan | null): void;
   setRide(r: boolean): void;
+  setCockpit(c: boolean): void;
+  setScenario(s: "epstein" | null): void;
   fireBeam(): void;
   clearBeam(): void;
   toggleMuted(): void;
@@ -50,6 +56,8 @@ export const store = createStore<AppState>()((set) => ({
   accelG: 0.3,
   plan: null,
   ride: false,
+  cockpit: false,
+  scenario: null,
   beamStartMs: null,
   muted: false,
 
@@ -62,8 +70,10 @@ export const store = createStore<AppState>()((set) => ({
   setDest: (id) => set({ destId: id, plan: null, ride: false, beamStartMs: null }),
   setShip: (id) => set({ shipId: id, plan: null, ride: false }),
   setAccel: (g) => set({ accelG: g, plan: null, ride: false }),
-  setPlan: (plan) => set({ plan, ride: false }),
-  setRide: (r) => set({ ride: r }),
+  setPlan: (plan) => set({ plan, ride: false, scenario: null }),
+  setRide: (r) => set(r ? { ride: r } : { ride: r, scenario: null }),
+  setCockpit: (c) => set({ cockpit: c }),
+  setScenario: (s) => set({ scenario: s }),
   fireBeam: () => set((s) => ({ beamStartMs: s.timeMs })),
   clearBeam: () => set({ beamStartMs: null }),
   toggleMuted: () => set((s) => ({ muted: !s.muted })),

@@ -74,6 +74,12 @@ export class FocusControls {
     );
   }
 
+  /** External override of the dolly target (attract mode, scenarios). */
+  setDistTarget(km: number) {
+    this.distTarget = km;
+    this.clampDist();
+  }
+
   focus(bodyId: string) {
     if (bodyId === this.focusId) return;
     this.prevFocusId = this.focusId;

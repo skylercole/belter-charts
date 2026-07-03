@@ -10,21 +10,28 @@
  */
 import * as THREE from "three";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import { BODIES } from "../data/bodies";
+import { BODIES, BODY_BY_ID } from "../data/bodies";
 import type { Ephemeris } from "../ephemeris";
 import { sampleOrbitPath, type OrbitPath } from "../ephemeris/orbitpath";
 import { dateToJd } from "../ephemeris/time";
 import type { Vec3 } from "../ephemeris/vec";
-import { distance } from "../ephemeris/vec";
+
 import { planFlight, shipPosition } from "../planner";
 import { fmtDuration } from "../ui/format";
 import { store, type AppState } from "../ui/store";
+import { AttractMode } from "./attract";
 import { buildBodies, type BodyVisual } from "./bodies3d";
+import { Cockpit } from "./cockpit";
+import { CommLog } from "./commlog";
 import { FocusControls, SHIP_FOCUS } from "./controls";
+import { EPSTEIN_EPITAPH, EPSTEIN_SCRIPT } from "./epstein";
 import { RideHud } from "./hud";
+import { rideMusic } from "./music";
+import { RideOverlays } from "./overlays";
 import { ShipVisual, type BurnPhase } from "./ship";
 import { EngineSound } from "./sound";
 import { TightbeamVisual } from "./tightbeam";
+import { OrbitTrails } from "./trails";
 import { TrajectoryVisual } from "./trajectory";
 
 const ORBIT_SAMPLES = 360;
@@ -44,11 +51,18 @@ export class Scene3D {
   private shipVisual: ShipVisual;
   private tightbeam: TightbeamVisual;
   private hud: RideHud;
+  private overlays: RideOverlays;
+  private commLog: CommLog;
+  private cockpit: Cockpit;
+  private trails: OrbitTrails;
+  private attract: AttractMode;
   private sound = new EngineSound();
   private sunLight: THREE.PointLight;
   private orbitLines = new Map<string, { line: THREE.Line; path: OrbitPath }>();
   private lastPlan: AppState["plan"] = null;
   private lastPhase: BurnPhase = "off";
+  private braceWarned = false;
+  private epitaphShown = false;
   private ttKey = "";
 
   constructor(
@@ -89,22 +103,48 @@ export class Scene3D {
     this.shipVisual = new ShipVisual(this.scene);
     this.tightbeam = new TightbeamVisual(this.scene);
     this.hud = new RideHud(container);
+    this.overlays = new RideOverlays(container);
+    this.commLog = new CommLog(container);
+    this.cockpit = new Cockpit(this.scene, container);
+    this.trails = new OrbitTrails(this.scene);
+    this.attract = new AttractMode(this.controls, this.renderer.domElement);
     this.buildOrbitLines();
 
     // Runs synchronously inside the Engage click's dispatch, so the
-    // AudioContext is created within a user gesture.
+    // AudioContexts are created within a user gesture.
     store.subscribe((s, prev) => {
       if (s.ride && !prev.ride) {
         this.sound.unlock();
+        rideMusic.unlock();
+        rideMusic.start(0.35 + 0.65 * Math.min(s.accelG / 5, 1));
         this.controls.focus(SHIP_FOCUS);
+        this.braceWarned = false;
+        this.epitaphShown = false;
+        if (s.scenario === "epstein" && s.plan) {
+          this.commLog.setCustomScript(s.plan, EPSTEIN_SCRIPT);
+        } else {
+          this.commLog.setPlan(s.plan);
+        }
+        if (s.accelG > 2) {
+          this.overlays.flash("JUICE ADMINISTERED", "juice");
+          this.sound.heartbeat();
+        }
       }
       if (!s.ride && prev.ride) {
         this.sound.stop();
+        rideMusic.stop();
+        this.overlays.setG(0, false);
+        this.overlays.hideEpitaph();
         if (this.controls.focusId === SHIP_FOCUS) {
-          this.controls.focus(s.plan?.destId ?? s.destId);
+          this.controls.focus(
+            prev.scenario === "epstein" ? "mars" : (s.plan?.destId ?? s.destId)
+          );
         }
       }
-      if (s.muted !== prev.muted) this.sound.setMuted(s.muted);
+      if (s.muted !== prev.muted) {
+        this.sound.setMuted(s.muted);
+        rideMusic.setMuted(s.muted);
+      }
     });
 
     this.resize(container);
@@ -150,13 +190,11 @@ export class Scene3D {
   }
 
   /** km of world space per screen pixel at heliocentric point p. */
-  private kmPerPixelAt(p: Vec3, originKm: Vec3, camWorld: Vec3): number {
-    const camHelio = {
-      x: originKm.x + camWorld.x,
-      y: originKm.y + camWorld.y,
-      z: originKm.z + camWorld.z,
-    };
-    const d = distance(p, camHelio);
+  private kmPerPixelAt(p: Vec3, originKm: Vec3, camWorld: THREE.Vector3): number {
+    const dx = p.x - (originKm.x + camWorld.x);
+    const dy = p.y - (originKm.y + camWorld.y);
+    const dz = p.z - (originKm.z + camWorld.z);
+    const d = Math.hypot(dx, dy, dz);
     const h = this.renderer.domElement.clientHeight || 1;
     return (2 * d * Math.tan((this.camera.fov * Math.PI) / 360)) / h;
   }
@@ -194,12 +232,62 @@ export class Scene3D {
       return this.eph.stateOf(id, d).pos;
     };
 
-    const originKm = this.controls.update(dt, resolve, date);
-    const camOff = this.controls.cameraOffset();
-    this.camera.position.set(camOff.x, camOff.y, camOff.z);
-    this.camera.lookAt(0, 0, 0);
+    // attract mode drives the controls when everything is idle
+    this.attract.update(dt, s.playing || s.ride || s.beamStartMs !== null);
 
-    const kmPerPx = (p: Vec3) => this.kmPerPixelAt(p, originKm, camOff);
+    const originKm = this.controls.update(dt, resolve, date);
+
+    // Ship state first (drives camera in cockpit mode).
+    const shipState = this.shipVisual.update(
+      s.plan,
+      s.timeMs,
+      originKm,
+      (p) => this.kmPerPixelAt(p, originKm, this.camera.position),
+      s.ride ? 30 : 12,
+      dt
+    );
+    const phase: BurnPhase = shipState?.phase ?? "off";
+    const thrusting = phase === "burn" || phase === "brake";
+
+    const cockpitActive = !!(s.ride && s.cockpit && s.plan && shipState);
+    this.cockpit.setVisible(cockpitActive);
+    this.shipVisual.group.visible = !!shipState && !cockpitActive;
+
+    const shake = thrusting ? Math.min(s.accelG / 6, 1.5) : 0;
+    if (cockpitActive && s.plan) {
+      this.cockpit.update(
+        this.camera,
+        s.plan,
+        s.timeMs,
+        this.shipVisual.group.quaternion,
+        this.shipVisual.group.position,
+        shake
+      );
+      const arriveWorld = new THREE.Vector3(
+        s.plan.arrivePos.x - originKm.x,
+        s.plan.arrivePos.y - originKm.y,
+        s.plan.arrivePos.z - originKm.z
+      );
+      this.camera.updateMatrixWorld();
+      this.cockpit.placeDestMarker(
+        this.camera,
+        arriveWorld,
+        BODY_BY_ID.get(s.plan.destId)?.name ?? "destination"
+      );
+    } else {
+      const camOff = this.controls.cameraOffset();
+      this.camera.position.set(camOff.x, camOff.y, camOff.z);
+      this.camera.lookAt(0, 0, 0);
+      if (s.ride && shake > 0) {
+        // chase-cam judder scaled to thrust
+        const j = 0.0035 * shake * this.controls.dist;
+        this.camera.position.x += (Math.random() - 0.5) * j;
+        this.camera.position.y += (Math.random() - 0.5) * j;
+        this.camera.position.z += (Math.random() - 0.5) * j;
+      }
+    }
+
+    const kmPerPx = (p: Vec3) => this.kmPerPixelAt(p, originKm, this.camera.position);
 
     // Bodies
     for (const v of this.visuals.values()) {
@@ -211,7 +299,7 @@ export class Scene3D {
 
       const px = kmPerPx(pos);
       const apparentPx = (2 * v.def.radiusKm) / px;
-      const showDot = apparentPx < 5;
+      const showDot = apparentPx < 5 && !cockpitActive;
       v.sprite.visible = showDot;
       if (showDot) {
         const sc = (v.def.kind === "planet" ? 7 : 5) * px;
@@ -253,42 +341,66 @@ export class Scene3D {
       attr.needsUpdate = true;
     }
 
+    // Trails
+    this.trails.update(this.eph, s.timeMs, s.speedDaysPerSec, s.playing, originKm);
+
     // Trajectory chord + flip marker
     if (s.plan !== this.lastPlan) {
       this.trajectory.setPlan(s.plan);
+      this.commLog.setPlan(s.plan);
       this.lastPlan = s.plan;
     }
     this.trajectory.update(originKm, kmPerPx);
 
-    // Ship
-    const shipState = this.shipVisual.update(
-      s.plan,
-      s.timeMs,
-      originKm,
-      kmPerPx,
-      s.ride ? 30 : 12,
-      dt
-    );
-    const phase: BurnPhase = shipState?.phase ?? "off";
-
-    // Ride bookkeeping: sound, flip cue, auto-exit at arrival.
+    // Ride bookkeeping: sound, brace warning, flip cue, g overlay, endings.
     if (s.ride && s.plan) {
-      if (phase === "flip" && this.lastPhase === "burn") this.sound.flipCue();
-      const thrust =
-        phase === "burn" || phase === "brake"
-          ? 0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1)
-          : 0;
+      const tSec = (s.timeMs - s.plan.depart.getTime()) / 1000;
+      const epstein = s.scenario === "epstein";
+
+      this.overlays.setG(phase === "flip" || phase === "off" ? 0 : s.plan.accelG, thrusting);
+      rideMusic.setIntensity(0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1));
+
+      // brace warning shortly before the flip
+      const w = Math.max(s.plan.travelTimeSec * 0.012, 30);
+      if (!epstein && !this.braceWarned && phase === "burn" && tSec > s.plan.flipTimeSec - 5 * w) {
+        this.braceWarned = true;
+        this.overlays.flash("BRACE FOR FLIP", "brace", 2600);
+        this.sound.braceKlaxon();
+      }
+      if (phase === "flip" && this.lastPhase === "burn") {
+        this.sound.flipCue();
+        this.sound.creaks();
+      }
+
+      const thrust = thrusting ? 0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1) : 0;
       this.sound.setThrust(thrust);
 
-      const tSec = (s.timeMs - s.plan.depart.getTime()) / 1000;
-      if (tSec > s.plan.travelTimeSec * 1.02) {
+      if (epstein) {
+        // fuel out at the pseudo-flip: cut everything, show the epitaph
+        if (tSec >= s.plan.flipTimeSec && !this.epitaphShown) {
+          this.epitaphShown = true;
+          s.setPlaying(false);
+          this.sound.setThrust(0);
+          rideMusic.stop();
+          this.sound.creaks();
+          this.overlays.showEpitaph(EPSTEIN_EPITAPH, () => {
+            s.setRide(false);
+            s.setSpeed(2);
+          });
+        }
+      } else if (tSec > s.plan.travelTimeSec * 1.02) {
+        this.sound.dockThunk();
+        this.overlays.flash("DOCKING CLAMPS ENGAGED", "info", 2600);
         s.setRide(false);
         s.setPlaying(false);
         s.setSpeed(2);
       }
+    } else {
+      this.overlays.setG(0, false);
     }
     this.lastPhase = phase;
-    this.hud.update(s.ride, s.plan, s.timeMs, phase);
+    this.hud.update(s.ride, s.plan, s.timeMs, phase, s.scenario, s.cockpit);
+    this.commLog.update(s.ride, s.timeMs);
 
     // Tightbeam
     if (s.beamStartMs !== null) {

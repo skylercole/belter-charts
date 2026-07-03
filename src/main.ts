@@ -32,6 +32,11 @@ async function boot() {
     render = (s, dt) => scene.render(s, dt);
   }
 
+  // The ride is a full-screen experience: the planner panel gets out of the way.
+  store.subscribe((s, prev) => {
+    if (s.ride !== prev.ride) app.classList.toggle("riding", s.ride);
+  });
+
   let lastFrame = performance.now();
   function frame(now: number) {
     const dt = Math.min((now - lastFrame) / 1000, 0.1);

@@ -51,6 +51,18 @@ Running log of every modeling assumption, per Plan.md. Update as decisions land.
   0.927, Dawn mosaic texture); no shape models in v1.
 - Skybox: Milky Way panorama, not aligned to the real galactic frame.
 
+## Story scenarios
+- "Epstein's last flight" follows the short story "Drive": figures are
+  deliberately approximate (6.8 g sustained, 37 h burn, prograde from Mars).
+  Canon gives no exact acceleration; the point is the one-way trajectory,
+  not the numbers. The scenario ship ignores fuel/mass modeling.
+
+## Sound & music
+- All audio is synthesized at runtime (WebAudio): drive rumble, cues, and an
+  original procedural rock loop. No licensed recordings ship with the app.
+- Users can load their own local audio file as ride music; it is stored in
+  the browser's IndexedDB only and never uploaded or redistributed.
+
 ## Planner physics
 - Brachistochrone, constant thrust, flip at midpoint: t = 2*sqrt(d/a).
 - Straight-chord flight; gravity and origin/destination orbital velocities
