@@ -4,10 +4,15 @@
  * (z = ecliptic north). Focus changes animate the origin along the line
  * between the two (moving) bodies, so the world never teleports.
  */
-import type { Ephemeris } from "../ephemeris";
 import type { Vec3 } from "../ephemeris/vec";
 import { lerp } from "../ephemeris/vec";
 import { BODY_BY_ID } from "../data/bodies";
+
+/** Pseudo-body id for the ship under way; resolved by the scene. */
+export const SHIP_FOCUS = "__ship__";
+
+/** Maps a focusable id (body or SHIP_FOCUS) to heliocentric km. */
+export type PositionResolver = (id: string, date: Date) => Vec3;
 
 const TRANSITION_SEC = 0.9;
 
@@ -58,8 +63,8 @@ export class FocusControls {
   }
 
   private minDist(): number {
-    const def = BODY_BY_ID.get(this.focusId)!;
-    return Math.max(def.radiusKm * 2.2, 5);
+    const def = BODY_BY_ID.get(this.focusId);
+    return def ? Math.max(def.radiusKm * 2.2, 5) : 1;
   }
 
   private clampDist() {
@@ -74,22 +79,22 @@ export class FocusControls {
     this.prevFocusId = this.focusId;
     this.focusId = bodyId;
     this.transition = 0;
-    const def = BODY_BY_ID.get(bodyId)!;
-    this.distTarget = Math.max(def.radiusKm * 6, 40);
+    const def = BODY_BY_ID.get(bodyId);
+    this.distTarget = def ? Math.max(def.radiusKm * 6, 40) : 2500; // ship: chase distance
     this.clampDist();
   }
 
   /** Advance animations; returns the floating origin in heliocentric km. */
-  update(dt: number, eph: Ephemeris, date: Date): Vec3 {
+  update(dt: number, resolve: PositionResolver, date: Date): Vec3 {
     if (this.transition < 1) {
       this.transition = Math.min(this.transition + dt / TRANSITION_SEC, 1);
     }
     // critically-damped-ish dolly
     this.dist += (this.distTarget - this.dist) * Math.min(dt * 6, 1);
 
-    const to = eph.stateOf(this.focusId, date).pos;
+    const to = resolve(this.focusId, date);
     if (this.transition >= 1) return to;
-    const from = eph.stateOf(this.prevFocusId, date).pos;
+    const from = resolve(this.prevFocusId, date);
     return lerp(from, to, easeInOut(this.transition));
   }
 

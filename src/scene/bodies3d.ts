@@ -13,6 +13,8 @@ export interface BodyVisual {
   mesh: THREE.Mesh | null;
   sprite: THREE.Sprite;
   labelEl: HTMLDivElement;
+  /** second label line: travel time from the planner origin */
+  timeEl: HTMLSpanElement;
 }
 
 function dotTexture(): THREE.Texture {
@@ -142,15 +144,20 @@ export function buildBodies(
 
     const labelEl = document.createElement("div");
     labelEl.className = `body-label kind-${def.kind}`;
-    labelEl.textContent = def.name;
     labelEl.style.color = def.color;
+    const nameEl = document.createElement("span");
+    nameEl.className = "bl-name";
+    nameEl.textContent = def.name;
+    const timeEl = document.createElement("span");
+    timeEl.className = "bl-time";
+    labelEl.append(nameEl, timeEl);
     labelEl.addEventListener("click", () => onLabelClick(def.id));
     const label = new CSS2DObject(labelEl);
     label.center.set(-0.08, 1.2);
     group.add(label);
 
     scene.add(group);
-    const visual: BodyVisual = { def, group, mesh, sprite, labelEl };
+    const visual: BodyVisual = { def, group, mesh, sprite, labelEl, timeEl };
     visuals.set(def.id, visual);
 
     if (def.model) {

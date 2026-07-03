@@ -1,9 +1,10 @@
 /**
  * Three.js scene. Non-negotiables from Plan.md 3:
- * - Floating origin: the focused body sits at world (0,0,0); every visual's
- *   coordinates are rewritten per frame as (heliocentric - origin) computed
- *   in Float64 on the CPU. The camera never leaves the origin's neighborhood,
- *   so there is no far-from-origin jitter by construction.
+ * - Floating origin: the focused body (or the ship) sits at world (0,0,0);
+ *   every visual's coordinates are rewritten per frame as
+ *   (heliocentric - origin) computed in Float64 on the CPU. The camera never
+ *   leaves the origin's neighborhood, so there is no far-from-origin jitter
+ *   by construction.
  * - Logarithmic depth buffer.
  * - Internal units: km everywhere (1 three unit = 1 km), Float64 on the CPU.
  */
@@ -15,14 +16,22 @@ import { sampleOrbitPath, type OrbitPath } from "../ephemeris/orbitpath";
 import { dateToJd } from "../ephemeris/time";
 import type { Vec3 } from "../ephemeris/vec";
 import { distance } from "../ephemeris/vec";
-import type { FlightPlan } from "../planner";
+import { planFlight, shipPosition } from "../planner";
+import { fmtDuration } from "../ui/format";
+import { store, type AppState } from "../ui/store";
 import { buildBodies, type BodyVisual } from "./bodies3d";
-import { FocusControls } from "./controls";
+import { FocusControls, SHIP_FOCUS } from "./controls";
+import { RideHud } from "./hud";
+import { ShipVisual, type BurnPhase } from "./ship";
+import { EngineSound } from "./sound";
+import { TightbeamVisual } from "./tightbeam";
 import { TrajectoryVisual } from "./trajectory";
 
 const ORBIT_SAMPLES = 360;
 const ORBIT_CACHE_DAYS = 45;
 const AU_KM = 149_597_870.7;
+/** travel-time labels refresh when the clock crosses a 6 h bucket */
+const TT_BUCKET_MS = 6 * 3_600_000;
 
 export class Scene3D {
   private renderer: THREE.WebGLRenderer;
@@ -32,9 +41,15 @@ export class Scene3D {
   readonly controls: FocusControls;
   private visuals: Map<string, BodyVisual>;
   private trajectory: TrajectoryVisual;
+  private shipVisual: ShipVisual;
+  private tightbeam: TightbeamVisual;
+  private hud: RideHud;
+  private sound = new EngineSound();
   private sunLight: THREE.PointLight;
   private orbitLines = new Map<string, { line: THREE.Line; path: OrbitPath }>();
-  private lastPlan: FlightPlan | null = null;
+  private lastPlan: AppState["plan"] = null;
+  private lastPhase: BurnPhase = "off";
+  private ttKey = "";
 
   constructor(
     container: HTMLElement,
@@ -71,7 +86,26 @@ export class Scene3D {
 
     this.visuals = buildBodies(this.scene, base, (id) => this.controls.focus(id));
     this.trajectory = new TrajectoryVisual(this.scene);
+    this.shipVisual = new ShipVisual(this.scene);
+    this.tightbeam = new TightbeamVisual(this.scene);
+    this.hud = new RideHud(container);
     this.buildOrbitLines();
+
+    // Runs synchronously inside the Engage click's dispatch, so the
+    // AudioContext is created within a user gesture.
+    store.subscribe((s, prev) => {
+      if (s.ride && !prev.ride) {
+        this.sound.unlock();
+        this.controls.focus(SHIP_FOCUS);
+      }
+      if (!s.ride && prev.ride) {
+        this.sound.stop();
+        if (this.controls.focusId === SHIP_FOCUS) {
+          this.controls.focus(s.plan?.destId ?? s.destId);
+        }
+      }
+      if (s.muted !== prev.muted) this.sound.setMuted(s.muted);
+    });
 
     this.resize(container);
     window.addEventListener("resize", () => this.resize(container));
@@ -127,14 +161,45 @@ export class Scene3D {
     return (2 * d * Math.tan((this.camera.fov * Math.PI) / 360)) / h;
   }
 
-  render(timeMs: number, plan: FlightPlan | null, dt: number) {
-    const date = new Date(timeMs);
+  /** Time-to-everywhere: refresh label sub-lines when inputs change. */
+  private updateTravelTimes(s: Pick<AppState, "originId" | "accelG" | "timeMs">) {
+    const key = `${s.originId}|${s.accelG}|${Math.floor(s.timeMs / TT_BUCKET_MS)}`;
+    if (key === this.ttKey) return;
+    this.ttKey = key;
+    const date = new Date(s.timeMs);
+    for (const v of this.visuals.values()) {
+      if (v.def.kind === "star" || v.def.id === s.originId) {
+        v.timeEl.textContent = v.def.id === s.originId ? "◉ origin" : "";
+        continue;
+      }
+      try {
+        const plan = planFlight(this.eph, s.originId, v.def.id, date, s.accelG);
+        v.timeEl.textContent = fmtDuration(plan.travelTimeSec);
+      } catch {
+        v.timeEl.textContent = "";
+      }
+    }
+  }
+
+  render(s: AppState, dt: number) {
+    const date = new Date(s.timeMs);
     const jdNow = dateToJd(date);
 
-    const originKm = this.controls.update(dt, this.eph, date);
+    const resolve = (id: string, d: Date): Vec3 => {
+      if (id === SHIP_FOCUS) {
+        if (!s.plan) return this.eph.stateOf(s.destId, d).pos;
+        const t = (d.getTime() - s.plan.depart.getTime()) / 1000;
+        return shipPosition(s.plan, t);
+      }
+      return this.eph.stateOf(id, d).pos;
+    };
+
+    const originKm = this.controls.update(dt, resolve, date);
     const camOff = this.controls.cameraOffset();
     this.camera.position.set(camOff.x, camOff.y, camOff.z);
     this.camera.lookAt(0, 0, 0);
+
+    const kmPerPx = (p: Vec3) => this.kmPerPixelAt(p, originKm, camOff);
 
     // Bodies
     for (const v of this.visuals.values()) {
@@ -144,20 +209,18 @@ export class Scene3D {
           : this.eph.stateOf(v.def.id, date).pos;
       v.group.position.set(pos.x - originKm.x, pos.y - originKm.y, pos.z - originKm.z);
 
-      const kmPerPx = this.kmPerPixelAt(pos, originKm, camOff);
-      const apparentPx = (2 * v.def.radiusKm) / kmPerPx;
+      const px = kmPerPx(pos);
+      const apparentPx = (2 * v.def.radiusKm) / px;
       const showDot = apparentPx < 5;
       v.sprite.visible = showDot;
       if (showDot) {
-        const s = (v.def.kind === "planet" ? 7 : 5) * kmPerPx;
-        v.sprite.scale.set(s, s, 1);
+        const sc = (v.def.kind === "planet" ? 7 : 5) * px;
+        v.sprite.scale.set(sc, sc, 1);
       }
-      // fade labels of belt objects when zoomed far out
-      const isFocus = v.def.id === this.controls.focusId;
-      v.labelEl.classList.toggle("focused", isFocus);
+      v.labelEl.classList.toggle("focused", v.def.id === this.controls.focusId);
 
       if (v.mesh && v.def.spinHours) {
-        const spin = (2 * Math.PI * (timeMs / 3_600_000)) / v.def.spinHours;
+        const spin = (2 * Math.PI * (s.timeMs / 3_600_000)) / v.def.spinHours;
         // Spheres are tilted pole-to-+Z via rotation.x; their native pole is
         // +Y, so spin goes on rotation.y. Packed models (Eros) are already
         // +Z-pole in their body frame, so spin goes on rotation.z.
@@ -165,6 +228,8 @@ export class Scene3D {
         else v.mesh.rotation.y = spin;
       }
     }
+
+    this.updateTravelTimes(s);
 
     // Sun light sits at the sun
     this.sunLight.position.set(-originKm.x, -originKm.y, -originKm.z);
@@ -188,14 +253,58 @@ export class Scene3D {
       attr.needsUpdate = true;
     }
 
-    // Trajectory
-    if (plan !== this.lastPlan) {
-      this.trajectory.setPlan(plan);
-      this.lastPlan = plan;
+    // Trajectory chord + flip marker
+    if (s.plan !== this.lastPlan) {
+      this.trajectory.setPlan(s.plan);
+      this.lastPlan = s.plan;
     }
-    this.trajectory.update(originKm, timeMs, (p) =>
-      this.kmPerPixelAt(p, originKm, camOff)
+    this.trajectory.update(originKm, kmPerPx);
+
+    // Ship
+    const shipState = this.shipVisual.update(
+      s.plan,
+      s.timeMs,
+      originKm,
+      kmPerPx,
+      s.ride ? 30 : 12,
+      dt
     );
+    const phase: BurnPhase = shipState?.phase ?? "off";
+
+    // Ride bookkeeping: sound, flip cue, auto-exit at arrival.
+    if (s.ride && s.plan) {
+      if (phase === "flip" && this.lastPhase === "burn") this.sound.flipCue();
+      const thrust =
+        phase === "burn" || phase === "brake"
+          ? 0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1)
+          : 0;
+      this.sound.setThrust(thrust);
+
+      const tSec = (s.timeMs - s.plan.depart.getTime()) / 1000;
+      if (tSec > s.plan.travelTimeSec * 1.02) {
+        s.setRide(false);
+        s.setPlaying(false);
+        s.setSpeed(2);
+      }
+    }
+    this.lastPhase = phase;
+    this.hud.update(s.ride, s.plan, s.timeMs, phase);
+
+    // Tightbeam
+    if (s.beamStartMs !== null) {
+      const alive = this.tightbeam.update(
+        true,
+        this.eph,
+        s.originId,
+        s.destId,
+        date,
+        originKm,
+        kmPerPx
+      );
+      if (!alive) s.clearBeam();
+    } else {
+      this.tightbeam.update(false, this.eph, s.originId, s.destId, date, originKm, kmPerPx);
+    }
 
     this.renderer.render(this.scene, this.camera);
     this.labelRenderer.render(this.scene, this.camera);

@@ -69,6 +69,129 @@ body,
   font-size: 10px;
   opacity: 0.7;
 }
+.body-label .bl-name {
+  display: block;
+}
+.body-label .bl-time {
+  display: block;
+  font-size: 9px;
+  color: #8899aa;
+  letter-spacing: 0.03em;
+}
+
+.beam-label {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: #ffd27d;
+  text-shadow: 0 0 4px #000;
+  white-space: nowrap;
+}
+
+/* ---- nav console additions ---- */
+.blurb {
+  color: #55637a;
+  font-size: 10px;
+  margin: -6px 0 10px;
+  line-height: 1.4;
+}
+.warning {
+  font-size: 10px;
+  line-height: 1.4;
+  margin: 0 0 10px;
+  min-height: 26px;
+}
+.warning[data-severity="0"] { color: #6d8f7d; }
+.warning[data-severity="1"] { color: #d8bd8a; }
+.warning[data-severity="2"] { color: #e0a06a; }
+.warning[data-severity="3"] { color: #e07a6a; }
+
+button.ghost {
+  background: none;
+  border: 1px dashed #24354f;
+  border-radius: 4px;
+  color: #8fb8d8;
+  padding: 4px 8px;
+  margin-top: 6px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+button.ghost:hover {
+  border-color: #3a628f;
+  color: #b8d8f0;
+}
+
+button.primary.ride {
+  margin-top: 10px;
+  background: #2c5c46;
+  border-color: #3f8563;
+}
+button.primary.ride:hover {
+  background: #356e54;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---- ride HUD ---- */
+#ride-hud {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 240px;
+  background: rgba(10, 14, 24, 0.96);
+  border: 1px solid #1d2a3f;
+  border-radius: 8px;
+  padding: 14px;
+  backdrop-filter: blur(6px);
+  font-size: 12px;
+}
+#ride-hud .hud-phase {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #7fd4a8;
+  margin-bottom: 10px;
+}
+#ride-hud .hud-phase[data-phase="flip"] { color: #ffd27d; }
+#ride-hud .hud-phase[data-phase="brake"] { color: #8fb8d8; }
+#ride-hud .hud-rows div {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+}
+#ride-hud .hud-rows span { color: #6d7c92; }
+#ride-hud .hud-rows b { color: #e8f0fa; font-weight: 500; }
+#ride-hud .hud-bar {
+  height: 4px;
+  background: #16213480;
+  border-radius: 2px;
+  margin: 10px 0;
+  overflow: hidden;
+}
+#ride-hud .hud-bar-fill {
+  height: 100%;
+  background: #7fd4a8;
+  width: 0;
+}
+#ride-hud .hud-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+#ride-hud button {
+  background: #0d1422;
+  color: #8899aa;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+#ride-hud button:hover { color: #cdd6e4; }
+#ride-hud .hud-mute.muted { color: #55637a; }
 
 #loading {
   position: absolute;
@@ -84,7 +207,9 @@ body,
   top: 16px;
   left: 16px;
   width: 280px;
-  background: rgba(10, 14, 24, 0.88);
+  max-height: calc(100% - 100px);
+  overflow-y: auto;
+  background: rgba(10, 14, 24, 0.96);
   border: 1px solid #1d2a3f;
   border-radius: 8px;
   padding: 16px;
@@ -206,7 +331,7 @@ button.primary:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(10, 14, 24, 0.88);
+  background: rgba(10, 14, 24, 0.96);
   border: 1px solid #1d2a3f;
   border-radius: 8px;
   padding: 10px 14px;

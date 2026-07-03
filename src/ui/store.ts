@@ -10,16 +10,28 @@ export interface AppState {
   speedDaysPerSec: number;
   originId: string;
   destId: string;
+  shipId: string;
   accelG: number;
   plan: FlightPlan | null;
+  /** ride-the-burn chase-cam mode; plan is guaranteed non-null while true */
+  ride: boolean;
+  /** tightbeam pulse in flight: sim time it left the origin */
+  beamStartMs: number | null;
+  muted: boolean;
 
   setTime(ms: number): void;
   togglePlaying(): void;
+  setPlaying(p: boolean): void;
   setSpeed(d: number): void;
   setOrigin(id: string): void;
   setDest(id: string): void;
+  setShip(id: string): void;
   setAccel(g: number): void;
   setPlan(plan: FlightPlan | null): void;
+  setRide(r: boolean): void;
+  fireBeam(): void;
+  clearBeam(): void;
+  toggleMuted(): void;
 }
 
 /** Era the UI can scrub; matches the packed small-body coverage with margin. */
@@ -34,15 +46,25 @@ export const store = createStore<AppState>()((set) => ({
   speedDaysPerSec: 2,
   originId: "earth",
   destId: "ceres",
+  shipId: "hauler",
   accelG: 0.3,
   plan: null,
+  ride: false,
+  beamStartMs: null,
+  muted: false,
 
   setTime: (ms) =>
     set({ timeMs: Math.min(Math.max(ms, ERA_START_MS), ERA_END_MS) }),
   togglePlaying: () => set((s) => ({ playing: !s.playing })),
+  setPlaying: (p) => set({ playing: p }),
   setSpeed: (d) => set({ speedDaysPerSec: d }),
-  setOrigin: (id) => set({ originId: id, plan: null }),
-  setDest: (id) => set({ destId: id, plan: null }),
-  setAccel: (g) => set({ accelG: g, plan: null }),
-  setPlan: (plan) => set({ plan }),
+  setOrigin: (id) => set({ originId: id, plan: null, ride: false, beamStartMs: null }),
+  setDest: (id) => set({ destId: id, plan: null, ride: false, beamStartMs: null }),
+  setShip: (id) => set({ shipId: id, plan: null, ride: false }),
+  setAccel: (g) => set({ accelG: g, plan: null, ride: false }),
+  setPlan: (plan) => set({ plan, ride: false }),
+  setRide: (r) => set({ ride: r }),
+  fireBeam: () => set((s) => ({ beamStartMs: s.timeMs })),
+  clearBeam: () => set({ beamStartMs: null }),
+  toggleMuted: () => set((s) => ({ muted: !s.muted })),
 }));

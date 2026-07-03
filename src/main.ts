@@ -17,19 +17,19 @@ async function boot() {
   const use2d = new URLSearchParams(location.search).get("view") === "2d";
   const app = document.getElementById("app")!;
 
-  let render: (timeMs: number, plan: ReturnType<typeof store.getState>["plan"], dt: number) => void;
+  let render: (s: ReturnType<typeof store.getState>, dt: number) => void;
 
   if (use2d) {
     const canvas = document.getElementById("map") as HTMLCanvasElement;
     const map = new Map2D(canvas, eph);
-    render = (t, plan) => map.render(t, plan);
+    render = (s) => map.render(s.timeMs, s.plan);
   } else {
     document.getElementById("map")!.remove();
     const container = document.createElement("div");
     container.id = "scene3d";
     app.prepend(container);
     const scene = new Scene3D(container, eph, base);
-    render = (t, plan, dt) => scene.render(t, plan, dt);
+    render = (s, dt) => scene.render(s, dt);
   }
 
   let lastFrame = performance.now();
@@ -40,7 +40,7 @@ async function boot() {
     if (s.playing) {
       s.setTime(s.timeMs + s.speedDaysPerSec * 86_400_000 * dt);
     }
-    render(s.timeMs, s.plan, dt);
+    render(store.getState(), dt);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

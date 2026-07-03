@@ -28,7 +28,6 @@ export class TrajectoryVisual {
   private line: THREE.Line;
   private lineGeo: THREE.BufferGeometry;
   private flip: THREE.Sprite;
-  private ship: THREE.Sprite;
   private plan: FlightPlan | null = null;
 
   constructor(scene: THREE.Scene) {
@@ -54,19 +53,13 @@ export class TrajectoryVisual {
     );
     this.flip.renderOrder = 6;
 
-    this.ship = new THREE.Sprite(
-      new THREE.SpriteMaterial({ color: 0xffffff, depthTest: false })
-    );
-    this.ship.renderOrder = 7;
-
-    scene.add(this.line, this.flip, this.ship);
+    scene.add(this.line, this.flip);
     this.setPlan(null);
   }
 
   setPlan(plan: FlightPlan | null) {
     this.plan = plan;
     this.line.visible = this.flip.visible = !!plan;
-    this.ship.visible = false;
     if (plan) {
       // Dash pattern scaled to the chord so it reads at any route length.
       const mat = this.line.material as THREE.LineDashedMaterial;
@@ -75,8 +68,7 @@ export class TrajectoryVisual {
     }
   }
 
-  /** @param spriteScale world size per pixel at distance d: (d) => km/px */
-  update(originKm: Vec3, timeMs: number, kmPerPixelAt: (p: Vec3) => number) {
+  update(originKm: Vec3, kmPerPixelAt: (p: Vec3) => number) {
     const plan = this.plan;
     if (!plan) return;
 
@@ -88,13 +80,6 @@ export class TrajectoryVisual {
 
     const flipPos = shipPosition(plan, plan.flipTimeSec);
     this.placeSprite(this.flip, flipPos, originKm, 18, kmPerPixelAt);
-
-    const tSec = (timeMs - plan.depart.getTime()) / 1000;
-    const flying = tSec >= 0 && tSec <= plan.travelTimeSec;
-    this.ship.visible = flying;
-    if (flying) {
-      this.placeSprite(this.ship, shipPosition(plan, tSec), originKm, 9, kmPerPixelAt);
-    }
   }
 
   private placeSprite(

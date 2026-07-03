@@ -1,5 +1,6 @@
-/** Planner panel: route pickers, g presets, output card, live light lag. */
+/** Nav-console panel: hull, route, burn, output card, live light lag. */
 import { ROUTE_BODIES } from "../data/bodies";
+import { burnWarning, SHIP_BY_ID, SHIPS } from "../data/ships";
 import type { Ephemeris } from "../ephemeris";
 import { lightLag, planFlight } from "../planner";
 import {
@@ -12,21 +13,22 @@ import {
 } from "./format";
 import { store } from "./store";
 
-const G_PRESETS = [
-  { g: 0.3, label: "0.3 g cruise" },
-  { g: 1, label: "1 g" },
-  { g: 2, label: "2 g" },
-  { g: 5, label: "5 g juice" },
-];
-
 export function mountPanel(root: HTMLElement, eph: Ephemeris) {
   const options = ROUTE_BODIES.map(
     (b) => `<option value="${b.id}">${b.name}</option>`
   ).join("");
+  const shipOptions = SHIPS.map(
+    (s) => `<option value="${s.id}">${s.name}</option>`
+  ).join("");
 
   root.innerHTML = `
     <h1>Flip <span class="accent">&amp;</span> Burn</h1>
-    <p class="tagline">unofficial Expanse navigator · phase 1</p>
+    <p class="tagline">unofficial Expanse navigator</p>
+
+    <label>Hull
+      <select id="ship">${shipOptions}</select>
+    </label>
+    <p id="ship-blurb" class="blurb"></p>
 
     <label>From
       <select id="origin">${options}</select>
@@ -35,16 +37,15 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
       <select id="dest">${options}</select>
     </label>
 
-    <div class="g-row" id="g-row">
-      ${G_PRESETS.map(
-        (p) => `<button data-g="${p.g}" class="g-btn">${p.label}</button>`
-      ).join("")}
-    </div>
+    <div class="g-row" id="g-row"></div>
+    <p id="burn-warning" class="warning"></p>
 
     <button id="plan-btn" class="primary">Plan flight</button>
 
     <div id="lag" class="lag"></div>
+    <button id="beam-btn" class="ghost" title="watch a comm pulse cross at lightspeed">◇ tightbeam</button>
     <div id="result" class="result"></div>
+    <button id="ride-btn" class="primary ride hidden">▶ Ride the burn</button>
 
     <p class="footnote">
       Brachistochrone, constant thrust, flip at midpoint. Gravity and orbital
@@ -53,16 +54,27 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     </p>
   `;
 
+  const ship = root.querySelector<HTMLSelectElement>("#ship")!;
+  const shipBlurb = root.querySelector<HTMLParagraphElement>("#ship-blurb")!;
   const origin = root.querySelector<HTMLSelectElement>("#origin")!;
   const dest = root.querySelector<HTMLSelectElement>("#dest")!;
   const gRow = root.querySelector<HTMLDivElement>("#g-row")!;
+  const warning = root.querySelector<HTMLParagraphElement>("#burn-warning")!;
   const planBtn = root.querySelector<HTMLButtonElement>("#plan-btn")!;
+  const beamBtn = root.querySelector<HTMLButtonElement>("#beam-btn")!;
+  const rideBtn = root.querySelector<HTMLButtonElement>("#ride-btn")!;
   const lagEl = root.querySelector<HTMLDivElement>("#lag")!;
   const resultEl = root.querySelector<HTMLDivElement>("#result")!;
 
+  ship.value = store.getState().shipId;
   origin.value = store.getState().originId;
   dest.value = store.getState().destId;
 
+  ship.addEventListener("change", () => {
+    const s = store.getState();
+    s.setShip(ship.value);
+    s.setAccel(SHIP_BY_ID.get(ship.value)!.defaultG);
+  });
   origin.addEventListener("change", () => store.getState().setOrigin(origin.value));
   dest.addEventListener("change", () => store.getState().setDest(dest.value));
 
@@ -90,19 +102,46 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     }
   });
 
-  function renderAccel() {
-    const g = store.getState().accelG;
-    for (const btn of gRow.querySelectorAll<HTMLButtonElement>(".g-btn")) {
-      btn.classList.toggle("active", Number(btn.dataset.g) === g);
-    }
+  beamBtn.addEventListener("click", () => {
+    const s = store.getState();
+    if (s.originId !== s.destId) s.fireBeam();
+  });
+
+  rideBtn.addEventListener("click", () => {
+    const s = store.getState();
+    const plan = s.plan;
+    if (!plan) return;
+    // Whole flight plays in ~35 s of wall time.
+    const days = plan.travelTimeSec / 86_400;
+    s.setTime(plan.depart.getTime());
+    s.setSpeed(Math.max(days / 35, 0.02));
+    s.setPlaying(true);
+    s.setRide(true);
+  });
+
+  function renderShip() {
+    const s = store.getState();
+    const hull = SHIP_BY_ID.get(s.shipId)!;
+    shipBlurb.textContent = hull.blurb;
+    gRow.innerHTML = hull.gPresets
+      .map(
+        (g) =>
+          `<button data-g="${g}" class="g-btn ${g === s.accelG ? "active" : ""}">${g} g</button>`
+      )
+      .join("");
+    const w = burnWarning(s.accelG);
+    warning.textContent = w.text;
+    warning.dataset.severity = String(w.severity);
   }
 
   function renderLag() {
     const s = store.getState();
     if (s.originId === s.destId) {
       lagEl.textContent = "";
+      beamBtn.classList.add("hidden");
       return;
     }
+    beamBtn.classList.remove("hidden");
     const lag = lightLag(eph, s.originId, s.destId, new Date(s.timeMs));
     lagEl.innerHTML = `light lag <b>${fmtLag(lag)}</b> one-way · <b>${fmtLag(
       lag * 2
@@ -111,6 +150,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
 
   function renderResult() {
     const { plan } = store.getState();
+    rideBtn.classList.toggle("hidden", !plan);
     if (!plan) {
       resultEl.innerHTML = "";
       return;
@@ -128,10 +168,9 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     `;
   }
 
-  // Light lag ticks with the clock; result card and buttons track state.
   let lastLagRender = 0;
   store.subscribe((s, prev) => {
-    if (s.accelG !== prev.accelG) renderAccel();
+    if (s.accelG !== prev.accelG || s.shipId !== prev.shipId) renderShip();
     if (s.plan !== prev.plan) renderResult();
     if (
       s.originId !== prev.originId ||
@@ -143,7 +182,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     }
   });
 
-  renderAccel();
+  renderShip();
   renderLag();
   renderResult();
 }
