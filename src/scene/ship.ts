@@ -11,6 +11,13 @@ import { loadPackedGeometry, tryLoadGlb } from "./loadmodel";
 
 /** Fraction of total flight time spent flipping (each side of midpoint). */
 const FLIP_HALF_FRAC = 0.012;
+/**
+ * Real hull scale: the Rocinante is ~46 m long and the model is 3 units, so
+ * one unit is ~15.3 m. The ship renders screen-constant at a distance but
+ * never smaller than real size — dolly in close and it becomes a real
+ * 46 m object filling the view.
+ */
+const REAL_KM_PER_UNIT = 0.046 / 3;
 
 export type BurnPhase = "burn" | "flip" | "brake" | "off";
 
@@ -108,7 +115,7 @@ export class ShipVisual {
 
     const pos = shipPosition(plan, tSec);
     this.group.position.set(pos.x - originKm.x, pos.y - originKm.y, pos.z - originKm.z);
-    const s = sizePx * kmPerPixelAt(pos);
+    const s = Math.max(sizePx * kmPerPixelAt(pos), REAL_KM_PER_UNIT);
     this.group.scale.setScalar(s);
 
     // Orientation: +Z nose along thrust direction.

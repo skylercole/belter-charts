@@ -83,7 +83,9 @@ export class Scene3D {
     this.labelRenderer.domElement.className = "label-layer";
     container.appendChild(this.labelRenderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 2e10);
+    // Near plane 0.5 m: the log depth buffer keeps precision, and hull
+    // close-ups (46 m ship) need it.
+    this.camera = new THREE.PerspectiveCamera(50, 1, 0.0005, 2e10);
     this.camera.up.set(0, 0, 1); // ecliptic north
 
     this.controls = new FocusControls(this.renderer.domElement, 9 * AU_KM);

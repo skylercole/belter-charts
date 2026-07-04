@@ -42,6 +42,9 @@ export class FocusControls {
   mode: "orbit" | "fly" = "orbit";
   yaw = -Math.PI / 3; // orbit angle, or look-direction yaw in fly mode
   pitch = 0.9;
+  /** damped targets: inputs write these, yaw/pitch ease toward them */
+  yawTarget = this.yaw;
+  pitchTarget = this.pitch;
   dist: number; // km from focus (orbit mode)
   private distTarget: number;
   /** camera offset from origin in fly mode, km */
@@ -69,11 +72,11 @@ export class FocusControls {
       this.last = { x: e.clientX, y: e.clientY };
       if (this.mode === "fly") {
         // aim the nose: drag right looks right
-        this.yaw -= dx * 0.0028;
-        this.pitch = Math.min(Math.max(this.pitch - dy * 0.0028, -1.5), 1.5);
+        this.yawTarget -= dx * 0.0028;
+        this.pitchTarget = Math.min(Math.max(this.pitchTarget - dy * 0.0028, -1.5), 1.5);
       } else {
-        this.yaw -= dx * 0.005;
-        this.pitch = Math.min(Math.max(this.pitch - dy * 0.005, -1.45), 1.45);
+        this.yawTarget -= dx * 0.005;
+        this.pitchTarget = Math.min(Math.max(this.pitchTarget - dy * 0.005, -1.45), 1.45);
       }
     });
     dom.addEventListener("pointerup", () => (this.dragging = false));
@@ -81,12 +84,12 @@ export class FocusControls {
       "wheel",
       (e) => {
         e.preventDefault();
+        const delta = this.normalizeWheel(e);
         if (this.mode === "fly") {
           // surge along the look direction, scale-aware
-          const step = -e.deltaY * 0.0015 * this.flySpeed();
-          this.translate(this.lookDir(), step);
+          this.translate(this.lookDir(), -delta * 0.0015 * this.flySpeed());
         } else {
-          this.distTarget *= Math.exp(e.deltaY * 0.0012);
+          this.distTarget *= Math.exp(delta * 0.0012);
           this.clampDist();
         }
       },
@@ -103,9 +106,23 @@ export class FocusControls {
     window.addEventListener("blur", () => this.keys.clear());
   }
 
+  /**
+   * Wheel delta in consistent "pixel" units: lines/pages scaled up, trackpad
+   * pinch (ctrlKey) boosted to match discrete-wheel feel.
+   */
+  private normalizeWheel(e: WheelEvent): number {
+    let d = e.deltaY;
+    if (e.deltaMode === 1) d *= 16; // lines
+    else if (e.deltaMode === 2) d *= 120; // pages
+    if (e.ctrlKey) d *= 4; // pinch gesture emits small deltas
+    return Math.max(Math.min(d, 300), -300);
+  }
+
   private minDist(): number {
     const def = BODY_BY_ID.get(this.focusId);
-    return def ? Math.max(def.radiusKm * 2.2, 5) : 1;
+    if (def) return Math.max(def.radiusKm * 2.2, 5);
+    // pseudo-foci: hull half-length is ~23 m, stop just outside it
+    return this.focusId === SHIP_FOCUS ? 0.06 : 1;
   }
 
   private focusRadius(): number {
@@ -141,8 +158,8 @@ export class FocusControls {
     const r = Math.max(Math.hypot(p.x, p.y, p.z), this.minDist());
     this.dist = r;
     this.distTarget = r;
-    this.yaw = Math.atan2(p.y, p.x);
-    this.pitch = Math.asin(Math.min(Math.max(p.z / r, -1), 1));
+    this.yaw = this.yawTarget = Math.atan2(p.y, p.x);
+    this.pitch = this.pitchTarget = Math.asin(Math.min(Math.max(p.z / r, -1), 1));
     this.clampDist();
   }
 
@@ -191,19 +208,25 @@ export class FocusControls {
         // start where the rail camera is, looking at the focus body
         this.freePos = this.cameraOffsetOrbit();
         const r = Math.hypot(this.freePos.x, this.freePos.y, this.freePos.z) || 1;
-        this.yaw = Math.atan2(-this.freePos.y, -this.freePos.x);
-        this.pitch = Math.asin(Math.min(Math.max(-this.freePos.z / r, -1), 1));
+        this.yaw = this.yawTarget = Math.atan2(-this.freePos.y, -this.freePos.x);
+        this.pitch = this.pitchTarget = Math.asin(
+          Math.min(Math.max(-this.freePos.z / r, -1), 1)
+        );
       } else {
-        // arrows ride the rail; Q/E pitch
-        if (k.has("ArrowLeft")) this.yaw += ORBIT_YAW_RATE * dt;
-        if (k.has("ArrowRight")) this.yaw -= ORBIT_YAW_RATE * dt;
-        if (k.has("KeyQ")) this.pitch = Math.min(this.pitch + ORBIT_PITCH_RATE * dt, 1.45);
-        if (k.has("KeyE")) this.pitch = Math.max(this.pitch - ORBIT_PITCH_RATE * dt, -1.45);
-        if (k.has("ArrowUp")) {
+        // arrows ride the rail; Q/E pitch; +/- dolly
+        if (k.has("ArrowLeft")) this.yawTarget += ORBIT_YAW_RATE * dt;
+        if (k.has("ArrowRight")) this.yawTarget -= ORBIT_YAW_RATE * dt;
+        if (k.has("KeyQ"))
+          this.pitchTarget = Math.min(this.pitchTarget + ORBIT_PITCH_RATE * dt, 1.45);
+        if (k.has("KeyE"))
+          this.pitchTarget = Math.max(this.pitchTarget - ORBIT_PITCH_RATE * dt, -1.45);
+        const zoomIn = k.has("ArrowUp") || k.has("Equal") || k.has("NumpadAdd");
+        const zoomOut = k.has("ArrowDown") || k.has("Minus") || k.has("NumpadSubtract");
+        if (zoomIn) {
           this.distTarget *= Math.exp(-ORBIT_DOLLY_RATE * dt);
           this.clampDist();
         }
-        if (k.has("ArrowDown")) {
+        if (zoomOut) {
           this.distTarget *= Math.exp(ORBIT_DOLLY_RATE * dt);
           this.clampDist();
         }
@@ -228,8 +251,10 @@ export class FocusControls {
     if (k.has("KeyD")) this.translate(right, v);
     if (k.has("KeyR")) this.translate(up, v);
     if (k.has("KeyF")) this.translate(up, -v);
-    if (k.has("KeyQ")) this.pitch = Math.min(this.pitch + ORBIT_PITCH_RATE * dt, 1.5);
-    if (k.has("KeyE")) this.pitch = Math.max(this.pitch - ORBIT_PITCH_RATE * dt, -1.5);
+    if (k.has("KeyQ"))
+      this.pitchTarget = Math.min(this.pitchTarget + ORBIT_PITCH_RATE * dt, 1.5);
+    if (k.has("KeyE"))
+      this.pitchTarget = Math.max(this.pitchTarget - ORBIT_PITCH_RATE * dt, -1.5);
   }
 
   /** Advance animations; returns the floating origin in heliocentric km. */
@@ -238,6 +263,11 @@ export class FocusControls {
     if (this.transition < 1) {
       this.transition = Math.min(this.transition + dt / TRANSITION_SEC, 1);
     }
+    // critically-damped-ish easing on rotation and dolly (industry feel:
+    // inputs write targets, the camera glides after them)
+    const rk = Math.min(dt * 14, 1);
+    this.yaw += (this.yawTarget - this.yaw) * rk;
+    this.pitch += (this.pitchTarget - this.pitch) * rk;
     if (this.mode === "orbit") {
       this.dist += (this.distTarget - this.dist) * Math.min(dt * 6, 1);
     }

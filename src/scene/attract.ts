@@ -66,9 +66,9 @@ export class AttractMode {
       const stop = TOUR[this.stopIdx];
       this.controls.focus(stop.bodyId);
       if (stop.dist) this.controls.setDistTarget(stop.dist);
-      this.controls.pitch = 0.15 + Math.random() * 0.5;
+      this.controls.pitchTarget = 0.15 + Math.random() * 0.5;
     }
     // slow cinematic drift
-    this.controls.yaw += dt * 0.045;
+    this.controls.yawTarget += dt * 0.045;
   }
 }
