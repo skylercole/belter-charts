@@ -23,7 +23,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
   ).join("");
 
   root.innerHTML = `
-    <h1>Flip <span class="accent">&amp;</span> Burn</h1>
+    <h1>Belter <span class="accent">Charts</span></h1>
     <p class="tagline">unofficial Expanse navigator</p>
 
     <label>Hull

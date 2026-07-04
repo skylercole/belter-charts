@@ -1,9 +1,10 @@
-# Flip and Burn
+# Belter Charts
 
 Unofficial navigator for The Expanse's solar system. Real ephemerides, canon
 locations, Epstein flight planner. Browser-only, no backend, no account.
 
-**Status: Phase 0** — math core + 2D map (see Plan.md).
+**Status: Phase 2 complete** — math core, 3D scene, ride mode, canon
+timeline (see Plan.md). Formerly working-titled "Flip and Burn".
 
 ## Run
 
