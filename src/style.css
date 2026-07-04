@@ -18,8 +18,73 @@ body,
 #app {
   position: relative;
 }
-#app.riding #panel {
+#app.riding #panel,
+#app.riding #nav-rail {
   display: none;
+}
+
+/* ---- nav rail ---- */
+#nav-rail {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 96px;
+  max-height: calc(100% - 110px);
+  overflow-y: auto;
+  background: rgba(10, 14, 24, 0.96);
+  border: 1px solid #1d2a3f;
+  border-radius: 8px;
+  padding: 8px;
+  backdrop-filter: blur(6px);
+}
+#nav-rail .nav-home {
+  width: 100%;
+  background: #0d1422;
+  color: #cdd6e4;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  padding: 5px 4px;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+#nav-rail .nav-home:hover { border-color: #3a628f; }
+#nav-rail .nav-group-title {
+  color: #55637a;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 6px 2px 3px;
+}
+#nav-rail .nav-body {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: #8899aa;
+  padding: 3px 4px;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+#nav-rail .nav-body:hover {
+  background: #16213480;
+  color: #cdd6e4;
+}
+#nav-rail .nav-body.active {
+  background: #1d2a3f;
+  color: #e8f0fa;
+}
+#nav-rail .nav-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
 }
 
 #map {

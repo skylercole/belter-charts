@@ -37,6 +37,8 @@ import { TrajectoryVisual } from "./trajectory";
 const ORBIT_SAMPLES = 360;
 const ORBIT_CACHE_DAYS = 45;
 const AU_KM = 149_597_870.7;
+/** pseudo focus id: midpoint of the planned route */
+const ROUTE_FOCUS = "__route__";
 /** travel-time labels refresh when the clock crosses a 6 h bucket */
 const TT_BUCKET_MS = 6 * 3_600_000;
 
@@ -110,6 +112,7 @@ export class Scene3D {
     this.trails = new OrbitTrails(this.scene);
     this.attract = new AttractMode(this.controls, this.renderer.domElement);
     this.buildOrbitLines();
+    this.bindDoubleClick();
 
     // Runs synchronously inside the Engage click's dispatch, so the
     // AudioContexts are created within a user gesture.
@@ -194,6 +197,50 @@ export class Scene3D {
     this.controls.focus(bodyId);
   }
 
+  /** Pull back to the whole-system view. */
+  goHome() {
+    this.controls.focus("sun");
+    this.controls.setDistTarget(9 * AU_KM);
+  }
+
+  /** Frame the planned route: focus the chord midpoint, fit the chord. */
+  frameRoute(): boolean {
+    const plan = store.getState().plan;
+    if (!plan) return false;
+    this.controls.focus(ROUTE_FOCUS);
+    this.controls.setDistTarget(Math.max(plan.distanceKm * 0.8, 5000));
+    return true;
+  }
+
+  /** Cycle focus through the body list (dir = +1 / -1). */
+  cycleFocus(dir: number) {
+    const ids = BODIES.map((b) => b.id);
+    const idx = ids.indexOf(this.controls.focusId);
+    const next = ids[(idx + dir + ids.length) % ids.length];
+    this.controls.focus(next);
+  }
+
+  private bindDoubleClick() {
+    this.renderer.domElement.addEventListener("dblclick", (e) => {
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const w = rect.width;
+      const h = rect.height;
+      let best: { id: string; d: number } | null = null;
+      const v = new THREE.Vector3();
+      for (const vis of this.visuals.values()) {
+        v.copy(vis.group.position).project(this.camera);
+        if (v.z > 1) continue; // behind camera
+        const sx = (v.x * 0.5 + 0.5) * w;
+        const sy = (-v.y * 0.5 + 0.5) * h;
+        const d = Math.hypot(sx - mx, sy - my);
+        if (d < 26 && (!best || d < best.d)) best = { id: vis.def.id, d };
+      }
+      if (best) this.controls.focus(best.id);
+    });
+  }
+
   /** km of world space per screen pixel at heliocentric point p. */
   private kmPerPixelAt(p: Vec3, originKm: Vec3, camWorld: THREE.Vector3): number {
     const dx = p.x - (originKm.x + camWorld.x);
@@ -233,6 +280,14 @@ export class Scene3D {
         if (!s.plan) return this.eph.stateOf(s.destId, d).pos;
         const t = (d.getTime() - s.plan.depart.getTime()) / 1000;
         return shipPosition(s.plan, t);
+      }
+      if (id === ROUTE_FOCUS) {
+        if (!s.plan) return this.eph.stateOf(s.originId, d).pos;
+        return {
+          x: (s.plan.departPos.x + s.plan.arrivePos.x) / 2,
+          y: (s.plan.departPos.y + s.plan.arrivePos.y) / 2,
+          z: (s.plan.departPos.z + s.plan.arrivePos.z) / 2,
+        };
       }
       return this.eph.stateOf(id, d).pos;
     };
@@ -395,12 +450,19 @@ export class Scene3D {
             s.setSpeed(2);
           });
         }
-      } else if (tSec > s.plan.travelTimeSec * 1.02) {
-        this.sound.dockThunk();
-        this.overlays.flash("DOCKING CLAMPS ENGAGED", "info", 2600);
-        s.setRide(false);
-        s.setPlaying(false);
-        s.setSpeed(2);
+      } else {
+        // Burn complete: cut the music right at arrival, even if the ride
+        // lingers (docked pause, user scrubbing around the end).
+        if (tSec >= s.plan.travelTimeSec && rideMusic.isPlaying()) {
+          rideMusic.stop();
+        }
+        if (tSec > s.plan.travelTimeSec * 1.02) {
+          this.sound.dockThunk();
+          this.overlays.flash("DOCKING CLAMPS ENGAGED", "info", 2600);
+          s.setRide(false);
+          s.setPlaying(false);
+          s.setSpeed(2);
+        }
       }
     } else {
       this.overlays.setG(0, false);

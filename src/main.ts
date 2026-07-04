@@ -2,9 +2,37 @@ import "./style.css";
 import { loadEphemeris } from "./ephemeris";
 import { Map2D } from "./map2d";
 import { Scene3D } from "./scene";
+import { mountNavRail } from "./ui/navrail";
 import { mountPanel } from "./ui/panel";
 import { mountTimebar } from "./ui/timebar";
 import { store } from "./ui/store";
+
+/** Keyboard flight: H home, [ ] cycle, 1-8 planets, 9 Ceres, 0 Sol, F route. */
+const DIGIT_FOCUS: Record<string, string> = {
+  Digit1: "mercury",
+  Digit2: "venus",
+  Digit3: "earth",
+  Digit4: "mars",
+  Digit5: "jupiter",
+  Digit6: "saturn",
+  Digit7: "uranus",
+  Digit8: "neptune",
+  Digit9: "ceres",
+  Digit0: "sun",
+};
+
+function bindKeyboard(scene: Scene3D) {
+  window.addEventListener("keydown", (e) => {
+    const t = e.target as HTMLElement;
+    if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code in DIGIT_FOCUS) scene.focus(DIGIT_FOCUS[e.code]);
+    else if (e.code === "KeyH") scene.goHome();
+    else if (e.code === "BracketRight") scene.cycleFocus(1);
+    else if (e.code === "BracketLeft") scene.cycleFocus(-1);
+    else if (e.code === "KeyF") scene.frameRoute();
+  });
+}
 
 async function boot() {
   const base = import.meta.env.BASE_URL;
@@ -30,6 +58,12 @@ async function boot() {
     app.prepend(container);
     const scene = new Scene3D(container, eph, base);
     render = (s, dt) => scene.render(s, dt);
+    mountNavRail(app, {
+      onSelect: (id) => scene.focus(id),
+      onHome: () => scene.goHome(),
+      current: () => scene.controls.focusId,
+    });
+    bindKeyboard(scene);
   }
 
   // The ride is a full-screen experience: the planner panel gets out of the way.
