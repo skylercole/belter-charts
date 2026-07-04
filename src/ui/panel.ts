@@ -99,6 +99,15 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
   planBtn.addEventListener("click", () => {
     const s = store.getState();
     if (s.originId === s.destId) return;
+    const when = new Date(s.timeMs);
+    for (const id of [s.originId, s.destId]) {
+      if (!eph.exists(id, when)) {
+        s.setPlan(null);
+        resultEl.classList.add("error");
+        resultEl.textContent = `No such object on this date — check the timeline. (${id})`;
+        return;
+      }
+    }
     try {
       const plan = planFlight(eph, s.originId, s.destId, new Date(s.timeMs), s.accelG);
       s.setPlan(plan);

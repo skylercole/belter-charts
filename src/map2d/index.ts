@@ -134,6 +134,7 @@ export class Map2D {
     ctx.font = "11px ui-monospace, monospace";
     for (const body of BODIES) {
       if (body.kind === "star") continue;
+      if (!this.eph.exists(body.id, date)) continue;
       const orbit = this.orbitPath(body, jdNow);
       ctx.strokeStyle = body.color + "38";
       ctx.lineWidth = 1;

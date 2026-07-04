@@ -46,7 +46,25 @@ export class Ephemeris {
           vel: rotateZ(parentState.vel, offsetDeg * DEG),
         };
       }
+      case "construct": {
+        // fixed circular heliocentric orbit in the ecliptic
+        const { radiusAu, phaseDeg } = def.construct!;
+        const r = radiusAu * 149_597_870.7;
+        const n = (2 * Math.PI) / (def.periodDays * 86_400); // rad/s
+        const t = date.getTime() / 1000;
+        const a = phaseDeg * DEG + n * t;
+        const v = n * r;
+        return {
+          pos: { x: r * Math.cos(a), y: r * Math.sin(a), z: 0 },
+          vel: { x: -v * Math.sin(a), y: v * Math.cos(a), z: 0 },
+        };
+      }
     }
+  }
+
+  /** Whether a body exists at the given time (timeline layer overrides). */
+  exists(_bodyId: string, _date: Date): boolean {
+    return true;
   }
 
   /** Inclusive JD range covered by every loaded small body. */

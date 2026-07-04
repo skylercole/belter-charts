@@ -59,6 +59,25 @@ Running log of every modeling assumption, per Plan.md. Update as decisions land.
   invented sizes (2.5 km / 1.2 km ring radius) — canon gives structure, not
   dimensions. Drop-in GLB overrides: public/models/README.md.
 
+## Canon timeline (Phase 2)
+- Anchor: Leviathan Wakes opens 2350-01-01 XTE (see Calendar anchor above).
+  All event dates in events.json are day offsets from the anchor; canon
+  never states absolute dates, and book-to-book gaps are editorial
+  estimates from internal cues (LW ~7 months; CW ~1 year later; AG ~6
+  months after CW; NG/BA ~5-6 years after LW). One constant re-anchors
+  everything.
+- Eros departure burn: modeled as a straight chord from Eros's real
+  position at the "eros-burn" date to Venus's real position at impact,
+  acceleration-only profile f=(t/T)^2, 37 days of flight. Canon describes
+  erratic, inertia-defying maneuvering; the chord is a deliberate
+  simplification. After impact Eros ceases to exist in the app.
+- The Ring: placed on a circular ecliptic orbit at 22 AU (canon: "outside
+  the orbit of Uranus"; exact distance never stated — open question per
+  Plan.md 13.1), ring radius 500 km (canon: ~1000 km across). It exists
+  only after the "ring-appears" event.
+- Spoiler mode: events beyond the user's "read up to" book are hidden from
+  the timeline UI entirely (markers, navigation). Default: book 1.
+
 ## Story scenarios
 - "Epstein's last flight" follows the short story "Drive": figures are
   deliberately approximate (6.8 g sustained, 37 h burn, prograde from Mars).

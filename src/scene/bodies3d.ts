@@ -72,6 +72,14 @@ function buildMesh(
   texLoader: THREE.TextureLoader,
   base: string
 ): THREE.Mesh | null {
+  if (def.kind === "construct") {
+    // the Ring: an unlit thousand-km torus standing on the ecliptic
+    const geo = new THREE.TorusGeometry(def.radiusKm, def.radiusKm * 0.045, 12, 96);
+    const mat = new THREE.MeshBasicMaterial({ color: def.color });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = Math.PI / 2;
+    return mesh;
+  }
   if (def.model) return null; // swapped in asynchronously
 
   const geo = new THREE.SphereGeometry(def.radiusKm, 48, 24);

@@ -594,9 +594,132 @@ button.primary:hover {
   font-size: 11px;
 }
 
-#timebar input[type="range"] {
+#timebar .scrub-wrap {
   flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+#timebar input[type="range"] {
+  width: 100%;
   accent-color: #7fd4a8;
+}
+#event-marks {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: -7px;
+  height: 0;
+  pointer-events: none;
+}
+#timebar .event-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: none;
+  border-radius: 2px 2px 0 0;
+  background: #ffd27d;
+  opacity: 0.75;
+  cursor: pointer;
+  pointer-events: auto;
+}
+#timebar .event-tick:hover {
+  opacity: 1;
+  background: #ffe6b3;
+}
+#timebar #ev-prev,
+#timebar #ev-next {
+  background: none;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  color: #ffd27d;
+  height: 26px;
+  padding: 0 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  white-space: nowrap;
+}
+#timebar #ev-prev:hover,
+#timebar #ev-next:hover {
+  border-color: #a07c2c;
+}
+
+/* ---- event card ---- */
+#event-card {
+  position: absolute;
+  right: 130px;
+  bottom: 76px;
+  width: 340px;
+  background: rgba(10, 14, 24, 0.96);
+  border: 1px solid #3a3524;
+  border-radius: 8px;
+  padding: 14px 16px;
+  backdrop-filter: blur(6px);
+  z-index: 4;
+}
+#app.riding #event-card {
+  display: none;
+}
+#event-card .ec-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+#event-card .ec-book {
+  color: #a07c2c;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+#event-card .ec-close {
+  background: none;
+  border: none;
+  color: #8899aa;
+  cursor: pointer;
+  font: inherit;
+}
+#event-card h3 {
+  color: #ffd27d;
+  font-size: 15px;
+  margin-bottom: 2px;
+}
+#event-card .ec-date {
+  color: #6d7c92;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+#event-card p {
+  color: #cdd6e4;
+  font-size: 12px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+#event-card .ec-hint {
+  color: #7fd4a8;
+  font-size: 11px;
+}
+#event-card .ec-cite {
+  color: #55637a;
+  font-size: 10px;
+  margin-bottom: 10px;
+}
+#event-card .ec-spoiler {
+  color: #8899aa;
+  font-size: 10px;
+}
+#event-card select {
+  background: #0d1422;
+  color: #cdd6e4;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 10px;
+  margin-left: 4px;
+  padding: 2px 4px;
 }
 
 #timebar #clock {

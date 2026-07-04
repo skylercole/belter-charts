@@ -4,7 +4,7 @@
  * are fine; they only control how far the orbit line is traced).
  */
 
-export type BodyKind = "star" | "planet" | "smallbody" | "station";
+export type BodyKind = "star" | "planet" | "smallbody" | "station" | "construct";
 
 export interface BodyDef {
   id: string;
@@ -27,6 +27,8 @@ export interface BodyDef {
   model?: string;
   /** For stations: parent body id and mean-anomaly offset in degrees. */
   station?: { parent: string; offsetDeg: number };
+  /** For constructs: fixed circular heliocentric orbit. */
+  construct?: { radiusAu: number; phaseDeg: number };
 }
 
 export const BODIES: BodyDef[] = [
@@ -66,6 +68,18 @@ export const BODIES: BodyDef[] = [
     periodDays: 1682,
     radiusKm: 1.2,
     station: { parent: "ceres", offsetDeg: 180 },
+  },
+  {
+    // The Sol gate. Exists only after the "ring-appears" timeline event
+    // (existence handled by the timeline layer). Distance/size assumptions
+    // in ASSUMPTIONS.md.
+    id: "ring",
+    name: "The Ring",
+    kind: "construct",
+    color: "#66e0d8",
+    periodDays: 37_690, // circular @ 22 AU
+    radiusKm: 500,
+    construct: { radiusAu: 22, phaseDeg: 200 },
   },
 ];
 

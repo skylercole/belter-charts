@@ -1,0 +1,137 @@
+{
+  "note": "All dates are day offsets from the calendar anchor (Leviathan Wakes opens 2350-01-01 XTE; see ASSUMPTIONS.md). Canon gives relative time only; offsets are editorial approximations from book-internal cues. spoiler = book number.",
+  "events": [
+    {
+      "id": "canterbury",
+      "offsetDays": 4,
+      "title": "The Canterbury",
+      "spoiler": 1,
+      "focus": "ceres",
+      "bodies": ["saturn", "ceres"],
+      "blurb": "The ice hauler Canterbury, running Saturn ice to Ceres, diverts to answer a distress call from the Scopuli near the asteroid CA-2216862 — and is destroyed by a stealth ship's torpedoes. Her shuttle crew survive to tell the system who fired first.",
+      "citation": "Leviathan Wakes ch. 1-4; expanse.fandom.com/wiki/Canterbury"
+    },
+    {
+      "id": "donnager",
+      "offsetDays": 40,
+      "title": "Loss of the Donnager",
+      "spoiler": 1,
+      "focus": "mars",
+      "bodies": ["mars"],
+      "blurb": "The MCRN flagship Donnager, carrying the Canterbury survivors toward Mars, is run down by six stealth ships of unknown origin. Rather than be boarded, her captain scuttles her. The survivors escape aboard a corvette they will come to call the Rocinante.",
+      "citation": "Leviathan Wakes ch. 18-21; expanse.fandom.com/wiki/Donnager"
+    },
+    {
+      "id": "eros-incident",
+      "offsetDays": 75,
+      "title": "The Eros incident",
+      "spoiler": 1,
+      "focus": "eros",
+      "bodies": ["eros"],
+      "blurb": "Julie Mao is found dead in a Blue Falcon flophouse room on Eros, her body overgrown by something not from this solar system. Within days Protogen's 'radiation emergency' herds a hundred thousand Belters into shelters that are incubators. Eros goes dark and starts to scream.",
+      "citation": "Leviathan Wakes ch. 26-37; expanse.fandom.com/wiki/Eros_Incident"
+    },
+    {
+      "id": "thoth-raid",
+      "offsetDays": 150,
+      "title": "Thoth Station falls",
+      "spoiler": 1,
+      "focus": "tycho",
+      "bodies": ["tycho"],
+      "blurb": "Fred Johnson's OPA irregulars, launched from Tycho, storm the hidden Protogen research station coordinating the Eros experiment. The scientists watching Eros die in real time called it progress.",
+      "citation": "Leviathan Wakes ch. 46-49; expanse.fandom.com/wiki/Thoth_Station"
+    },
+    {
+      "id": "eros-burn",
+      "offsetDays": 180,
+      "title": "Eros moves",
+      "spoiler": 1,
+      "focus": "eros",
+      "bodies": ["eros", "venus"],
+      "blurb": "As the Nauvoo bears down to ram it, Eros — thirteen quadrillion kilograms of rock and protomolecule — simply steps aside and leaves its orbit, accelerating sunward with no drive plume and no inertia the physics models can explain. It is heading for Earth. Scrub the clock forward and watch it go.",
+      "citation": "Leviathan Wakes ch. 51-54; expanse.fandom.com/wiki/Eros_Incident"
+    },
+    {
+      "id": "eros-impact",
+      "offsetDays": 217,
+      "title": "Eros falls on Venus",
+      "spoiler": 1,
+      "focus": "venus",
+      "bodies": ["venus"],
+      "blurb": "Steered from inside by what remains of Julie Mao, Eros misses Earth and buries itself in Venus. The crater glows for weeks. Something starts building down there under the acid clouds.",
+      "citation": "Leviathan Wakes ch. 55-epilogue; expanse.fandom.com/wiki/Venus",
+      "hint": "Eros is gone from the map after this date."
+    },
+    {
+      "id": "ganymede",
+      "offsetDays": 530,
+      "title": "The Ganymede incident",
+      "spoiler": 2,
+      "focus": "jupiter",
+      "bodies": ["jupiter"],
+      "blurb": "On the breadbasket moon of the outer planets, a thing that does not need a vac suit walks through UN and MCR lines alike. The shooting that follows kills thousands and breaks the fragile Earth-Mars peace. Ganymede's domes fall dark one by one.",
+      "citation": "Caliban's War ch. 1-12; expanse.fandom.com/wiki/Ganymede_incident"
+    },
+    {
+      "id": "io",
+      "offsetDays": 610,
+      "title": "Confrontation at Io",
+      "spoiler": 2,
+      "focus": "jupiter",
+      "bodies": ["jupiter"],
+      "blurb": "The hybrid program's masters make their stand at Io. Half the UN fleet fires on the other half, Avasarala runs the system from a stateroom, and a squad of hybrid pods burns for Mars until Holden's crew and a marine in a mech settle it.",
+      "citation": "Caliban's War ch. 45-53; expanse.fandom.com/wiki/Io_Campaign"
+    },
+    {
+      "id": "ring-appears",
+      "offsetDays": 720,
+      "title": "The Ring",
+      "spoiler": 3,
+      "focus": "ring",
+      "bodies": ["ring", "venus", "uranus"],
+      "blurb": "The structure Venus has been building for two years launches itself out of the clouds, coasts past the orbit of Uranus, and assembles into a thousand-kilometre ring hanging dead still in space. Then it waits. The gate to everywhere is open.",
+      "citation": "Caliban's War epilogue; Abaddon's Gate ch. 1; expanse.fandom.com/wiki/Sol_gate",
+      "hint": "A new object appears beyond Uranus after this date."
+    },
+    {
+      "id": "ring-flotilla",
+      "offsetDays": 790,
+      "title": "The flotilla and the slow zone",
+      "spoiler": 3,
+      "focus": "ring",
+      "bodies": ["ring"],
+      "blurb": "Earth, Mars and the OPA send a combined flotilla to the Ring, led by the largest ship ever built. Inside, the slow zone catches every hull that crosses the threshold, and humanity nearly dies of its own reflexes a thousand AU from home.",
+      "citation": "Abaddon's Gate ch. 8-53; expanse.fandom.com/wiki/Sol_Ring_Flotilla"
+    },
+    {
+      "id": "colony-rush",
+      "offsetDays": 1100,
+      "title": "The colony rush",
+      "spoiler": 4,
+      "focus": "ring",
+      "bodies": ["ring"],
+      "blurb": "Thirteen hundred systems on the far side of the gates, and the first refugee ships jump the queue to claim them. On a world the charts call New Terra and the settlers call Ilus, the first shots of the land rush are fired before the first survey is filed.",
+      "citation": "Cibola Burn ch. 1; expanse.fandom.com/wiki/Ilus_IV"
+    },
+    {
+      "id": "rock-strikes",
+      "offsetDays": 1800,
+      "title": "The Free Navy strikes Earth",
+      "spoiler": 5,
+      "focus": "earth",
+      "bodies": ["earth"],
+      "blurb": "Stealth-coated asteroids, thrown months earlier and invisible to the watchtowers, come down on Earth in a rolling barrage. Tens of millions die in the first hours; the ash cloud kills the growing seasons. Marco Inaros declares the Belt free.",
+      "citation": "Nemesis Games ch. 39-45; expanse.fandom.com/wiki/Free_Navy_Conflict"
+    },
+    {
+      "id": "freenav-end",
+      "offsetDays": 2150,
+      "title": "The Free Navy broken",
+      "spoiler": 6,
+      "focus": "ring",
+      "bodies": ["ring", "earth"],
+      "blurb": "The Consolidated Fleet runs the Free Navy to ground at the Ring. Inaros's fleet burns hard for Medina and the gate — and the gate, fed too much mass and energy, simply declines to let them exist. The war ends in a flicker of blue.",
+      "citation": "Babylon's Ashes ch. 48-53; expanse.fandom.com/wiki/Free_Navy_Conflict"
+    }
+  ]
+}

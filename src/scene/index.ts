@@ -266,6 +266,10 @@ export class Scene3D {
         v.timeEl.textContent = v.def.id === s.originId ? "◉ origin" : "";
         continue;
       }
+      if (!this.eph.exists(v.def.id, date)) {
+        v.timeEl.textContent = "";
+        continue;
+      }
       try {
         const plan = planFlight(this.eph, s.originId, v.def.id, date, s.accelG);
         v.timeEl.textContent = fmtDuration(plan.travelTimeSec);
@@ -356,6 +360,11 @@ export class Scene3D {
 
     // Bodies
     for (const v of this.visuals.values()) {
+      // timeline existence: Eros after Venus impact, the Ring before it appears
+      const exists = this.eph.exists(v.def.id, date);
+      v.group.visible = exists;
+      v.labelEl.style.display = exists ? "" : "none";
+      if (!exists) continue;
       const pos =
         v.def.kind === "star"
           ? { x: 0, y: 0, z: 0 }
@@ -392,6 +401,9 @@ export class Scene3D {
     for (const def of BODIES) {
       if (def.kind === "star") continue;
       const entry = this.orbitLines.get(def.id)!;
+      const exists = this.eph.exists(def.id, date);
+      entry.line.visible = exists;
+      if (!exists) continue;
       if (Math.abs(entry.path.jdCenter - jdNow) > ORBIT_CACHE_DAYS) {
         entry.path = sampleOrbitPath(this.eph, def, jdNow, ORBIT_SAMPLES);
       }
