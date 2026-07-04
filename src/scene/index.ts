@@ -39,6 +39,9 @@ const ORBIT_CACHE_DAYS = 45;
 const AU_KM = 149_597_870.7;
 /** pseudo focus id: midpoint of the planned route */
 const ROUTE_FOCUS = "__route__";
+/** ride-start seat: tuned so the intercept sits inside the FOV (verified) */
+const RIDE_SEAT_PITCH = 0.3;
+const RIDE_SEAT_DIST = 0.3;
 /** pseudo focus id: live midpoint between ship and target (docking view) */
 const DOCK_FOCUS = "__dock__";
 /** travel-time labels refresh when the clock crosses a 6 h bucket */
@@ -147,17 +150,24 @@ export class Scene3D {
             y: s.plan.arrivePos.y - dp.y,
             z: s.plan.arrivePos.z - dp.z,
           };
-          const cl = Math.hypot(chord.x, chord.y) || 1;
-          const sl = Math.hypot(dp.x, dp.y) || 1;
-          // view direction (ecliptic plane): 60% toward target, 40% toward Sol
-          const vx = (0.6 * chord.x) / cl + (0.4 * -dp.x) / sl;
-          const vy = (0.6 * chord.y) / cl + (0.4 * -dp.y) / sl;
-          this.controls.setOrientation(Math.atan2(-vy, -vx), 0.55);
+          // View aims at the target, skewed toward Sol — but the skew is
+          // clamped to ±15° so the intercept always stays inside the FOV.
+          const thetaTarget = Math.atan2(chord.y, chord.x);
+          const thetaSun = Math.atan2(-dp.y, -dp.x);
+          let skew = thetaSun - thetaTarget;
+          while (skew > Math.PI) skew -= 2 * Math.PI;
+          while (skew < -Math.PI) skew += 2 * Math.PI;
+          skew = Math.min(Math.max(skew, -0.26), 0.26);
+          const theta = thetaTarget + skew;
+          this.controls.setOrientation(
+            Math.atan2(-Math.sin(theta), -Math.cos(theta)),
+            RIDE_SEAT_PITCH
+          );
           // High seat: far enough back that the route, its ellipses and the
           // inner system spread out below (the ship is screen-constant, so
           // it stays visible at any distance).
           this.controls.setDistTarget(
-            Math.min(Math.max(s.plan.distanceKm * 0.35, 5e6), 1.8e8)
+            Math.min(Math.max(s.plan.distanceKm * RIDE_SEAT_DIST, 5e6), 1.8e8)
           );
         }
         this.braceWarned = false;
