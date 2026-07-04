@@ -4,8 +4,23 @@
  * they inherit floating-origin stability.
  */
 import * as THREE from "three";
+import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { Vec3 } from "../ephemeris/vec";
 import { shipPosition, type FlightPlan } from "../planner";
+
+function ringTexture(): THREE.Texture {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d")!;
+  ctx.strokeStyle = "#7fd4a8";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(32, 32, 24, 0, Math.PI * 2);
+  ctx.stroke();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
 
 function crossTexture(): THREE.Texture {
   const c = document.createElement("canvas");
@@ -28,6 +43,8 @@ export class TrajectoryVisual {
   private line: THREE.Line;
   private lineGeo: THREE.BufferGeometry;
   private flip: THREE.Sprite;
+  /** rendezvous ring at the chord end: the target WILL be here at arrival */
+  private intercept: THREE.Sprite;
   private plan: FlightPlan | null = null;
 
   constructor(scene: THREE.Scene) {
@@ -53,13 +70,24 @@ export class TrajectoryVisual {
     );
     this.flip.renderOrder = 6;
 
-    scene.add(this.line, this.flip);
+    this.intercept = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: ringTexture(), depthTest: false })
+    );
+    this.intercept.renderOrder = 6;
+    const label = document.createElement("div");
+    label.className = "beam-label";
+    label.textContent = "intercept";
+    const labelObj = new CSS2DObject(label);
+    labelObj.center.set(-0.15, 1.6);
+    this.intercept.add(labelObj);
+
+    scene.add(this.line, this.flip, this.intercept);
     this.setPlan(null);
   }
 
   setPlan(plan: FlightPlan | null) {
     this.plan = plan;
-    this.line.visible = this.flip.visible = !!plan;
+    this.line.visible = this.flip.visible = this.intercept.visible = !!plan;
     if (plan) {
       // Dash pattern scaled to the chord so it reads at any route length.
       const mat = this.line.material as THREE.LineDashedMaterial;
@@ -80,6 +108,7 @@ export class TrajectoryVisual {
 
     const flipPos = shipPosition(plan, plan.flipTimeSec);
     this.placeSprite(this.flip, flipPos, originKm, 18, kmPerPixelAt);
+    this.placeSprite(this.intercept, plan.arrivePos, originKm, 16, kmPerPixelAt);
   }
 
   private placeSprite(

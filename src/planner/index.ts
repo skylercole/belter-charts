@@ -64,8 +64,10 @@ export interface FlightPlan {
   iterations: number;
 }
 
-const CONVERGE_SEC = 60; // iterate until delta-t < 1 minute
-const MAX_ITER = 20;
+// Tight tolerance: at ~25 km/s target speed, 1 s of travel-time error is
+// ~25 km of rendezvous miss — invisible even at dock zoom.
+const CONVERGE_SEC = 1;
+const MAX_ITER = 30;
 
 /**
  * Moving-target intercept (Plan.md 5.3): the destination moves during the
@@ -96,6 +98,12 @@ export function planFlight(
     t = tNext;
     if (dt < CONVERGE_SEC) break;
   }
+
+  // Final consistency pass: pin the arrival point to the destination's
+  // exact position at the converged arrival time, so the chord ends where
+  // the body actually is when the ship gets there.
+  const bFinal = brachistochrone(distance(departPos, arrivePos), accel);
+  arrivePos = eph.stateOf(destId, new Date(depart.getTime() + bFinal.t * 1000)).pos;
 
   const d = distance(departPos, arrivePos);
   const b = brachistochrone(d, accel);
