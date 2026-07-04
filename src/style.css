@@ -305,6 +305,15 @@ button.primary.ride:hover {
 }
 .tool-btn:hover { border-color: #3a628f; color: #b8d8f0; }
 .tool-btn.wide { flex: 1; text-align: left; }
+.keys-hint {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #16213480;
+  color: #55637a;
+  font-size: 9.5px;
+  line-height: 1.7;
+}
+.keys-hint b { color: #8899aa; }
 
 /* ---- honesty toggle ---- */
 .honesty-row {

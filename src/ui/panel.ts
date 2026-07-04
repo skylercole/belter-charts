@@ -73,6 +73,13 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
       <button id="epstein-btn" class="tool-btn wide" title="story mode: ride the first Epstein burn">☄ Epstein's last flight</button>
       <button id="about-btn" class="tool-btn" title="about, credits, controls">ⓘ</button>
     </div>
+
+    <p class="keys-hint">
+      <b>WASD</b>+<b>R/F</b> fly (<b>⇧</b> boost) · drag aim ·
+      <b>r-drag</b> pan · <b>←→↑↓</b> orbit/zoom · <b>Q/E</b> pitch<br />
+      <b>H</b> home · <b>[ ]</b> cycle · <b>1–9 0</b> bodies ·
+      <b>G</b> route · <b>space</b> play · click body = fly to it
+    </p>
   `;
 
   const ship = root.querySelector<HTMLSelectElement>("#ship")!;
