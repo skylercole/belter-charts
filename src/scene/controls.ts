@@ -148,6 +148,12 @@ export class FocusControls {
     this.clampDist();
   }
 
+  /** Glide the camera to a given orbit orientation (damped, not a snap). */
+  setOrientation(yaw: number, pitch: number) {
+    this.yawTarget = yaw;
+    this.pitchTarget = Math.min(Math.max(pitch, -1.45), 1.45);
+  }
+
   focus(bodyId: string) {
     this.exitFly();
     if (bodyId === this.focusId) return;

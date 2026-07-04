@@ -137,6 +137,29 @@ export class Scene3D {
         }
         this.controls.focus(SHIP_FOCUS);
         this.controls.rideLock = true;
+        // Cinematic chase seat: above the ecliptic, behind the ship, view
+        // blended toward the target and Sol so the route and the inner
+        // system spread out ahead.
+        if (s.plan) {
+          const dp = s.plan.departPos;
+          const chord = {
+            x: s.plan.arrivePos.x - dp.x,
+            y: s.plan.arrivePos.y - dp.y,
+            z: s.plan.arrivePos.z - dp.z,
+          };
+          const cl = Math.hypot(chord.x, chord.y) || 1;
+          const sl = Math.hypot(dp.x, dp.y) || 1;
+          // view direction (ecliptic plane): 60% toward target, 40% toward Sol
+          const vx = (0.6 * chord.x) / cl + (0.4 * -dp.x) / sl;
+          const vy = (0.6 * chord.y) / cl + (0.4 * -dp.y) / sl;
+          this.controls.setOrientation(Math.atan2(-vy, -vx), 0.55);
+          // High seat: far enough back that the route, its ellipses and the
+          // inner system spread out below (the ship is screen-constant, so
+          // it stays visible at any distance).
+          this.controls.setDistTarget(
+            Math.min(Math.max(s.plan.distanceKm * 0.35, 5e6), 1.8e8)
+          );
+        }
         this.braceWarned = false;
         this.epitaphShown = false;
         if (s.scenario === "epstein" && s.plan) {
