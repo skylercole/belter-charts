@@ -6,6 +6,7 @@
 import * as THREE from "three";
 import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { BODIES, type BodyDef } from "../data/bodies";
+import { loadPackedGeometry, tryLoadGlb } from "./loadmodel";
 
 export interface BodyVisual {
   def: BodyDef;
@@ -32,24 +33,38 @@ function dotTexture(): THREE.Texture {
   return tex;
 }
 
-async function loadPackedMesh(url: string): Promise<THREE.BufferGeometry> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`failed to load ${url}: HTTP ${res.status}`);
-  const buf = await res.arrayBuffer();
-  const view = new DataView(buf);
-  const magic = String.fromCharCode(
-    view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3)
-  );
-  if (magic !== "FNM1") throw new Error(`bad mesh magic in ${url}`);
-  const v = view.getUint32(4, true);
-  const t = view.getUint32(8, true);
-  const positions = new Float32Array(buf, 12, v * 3);
-  const indices = new Uint32Array(buf, 12 + v * 12, t * 3);
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geo.setIndex(new THREE.BufferAttribute(indices, 1));
-  geo.computeVertexNormals();
-  return geo;
+/**
+ * Procedural station: ring + spokes + hub, real-scale km. Used unless a
+ * drop-in models/<id>.glb exists. Original design, no show geometry.
+ */
+function buildStation(def: BodyDef): THREE.Group {
+  const g = new THREE.Group();
+  const r = def.radiusKm;
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x9aa3ad,
+    roughness: 0.6,
+    metalness: 0.35,
+  });
+  const glow = new THREE.MeshBasicMaterial({ color: def.color });
+
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(r, r * 0.1, 10, 64), mat);
+  g.add(ring);
+  for (let i = 0; i < 4; i++) {
+    const spoke = new THREE.Mesh(
+      new THREE.CylinderGeometry(r * 0.035, r * 0.035, r * 2, 8),
+      mat
+    );
+    spoke.rotation.z = (i * Math.PI) / 4 + Math.PI / 2;
+    g.add(spoke);
+  }
+  // hub: sphere for the Tycho-style construction dock, capsule otherwise
+  const hub = new THREE.Mesh(new THREE.SphereGeometry(r * 0.32, 24, 16), mat);
+  g.add(hub);
+  // docking beacon
+  const beacon = new THREE.Mesh(new THREE.SphereGeometry(r * 0.05, 8, 6), glow);
+  beacon.position.z = r * 0.4;
+  g.add(beacon);
+  return g;
 }
 
 function buildMesh(
@@ -57,11 +72,6 @@ function buildMesh(
   texLoader: THREE.TextureLoader,
   base: string
 ): THREE.Mesh | null {
-  if (def.kind === "station") {
-    const geo = new THREE.OctahedronGeometry(def.radiusKm, 0);
-    const mat = new THREE.MeshBasicMaterial({ color: def.color });
-    return new THREE.Mesh(geo, mat);
-  }
   if (def.model) return null; // swapped in asynchronously
 
   const geo = new THREE.SphereGeometry(def.radiusKm, 48, 24);
@@ -127,8 +137,21 @@ export function buildBodies(
   for (const def of BODIES) {
     const group = new THREE.Group();
 
-    const mesh = buildMesh(def, texLoader, base);
-    if (mesh) group.add(mesh);
+    let mesh: THREE.Mesh | null = null;
+    if (def.kind === "station") {
+      const station = buildStation(def);
+      group.add(station);
+      // drop-in override: public/models/<id>.glb
+      tryLoadGlb(`${base}models/${def.id}.glb`, def.radiusKm * 2.4).then((obj) => {
+        if (obj) {
+          group.remove(station);
+          group.add(obj);
+        }
+      });
+    } else {
+      mesh = buildMesh(def, texLoader, base);
+      if (mesh) group.add(mesh);
+    }
     if (def.ring) group.add(buildRing(def, texLoader, base));
 
     const sprite = new THREE.Sprite(
@@ -161,7 +184,7 @@ export function buildBodies(
     visuals.set(def.id, visual);
 
     if (def.model) {
-      loadPackedMesh(`${base}models/${def.model}`).then((geo) => {
+      loadPackedGeometry(`${base}models/${def.model}`).then((geo) => {
         // PDS plate models have inconsistent triangle winding; flat shading
         // with DoubleSide sidesteps both the winding and the vertex-normal
         // artifacts, and reads well on an 89k-facet rock.

@@ -55,7 +55,7 @@ export const BODIES: BodyDef[] = [
     kind: "station",
     color: "#7fd4a8",
     periodDays: 1682,
-    radiusKm: 1,
+    radiusKm: 2.5,
     station: { parent: "ceres", offsetDeg: 60 },
   },
   {
@@ -64,7 +64,7 @@ export const BODIES: BodyDef[] = [
     kind: "station",
     color: "#d47fb8",
     periodDays: 1682,
-    radiusKm: 1,
+    radiusKm: 1.2,
     station: { parent: "ceres", offsetDeg: 180 },
   },
 ];

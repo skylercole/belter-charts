@@ -103,7 +103,7 @@ export class Scene3D {
 
     this.visuals = buildBodies(this.scene, base, (id) => this.controls.focus(id));
     this.trajectory = new TrajectoryVisual(this.scene);
-    this.shipVisual = new ShipVisual(this.scene);
+    this.shipVisual = new ShipVisual(this.scene, base);
     this.tightbeam = new TightbeamVisual(this.scene);
     this.hud = new RideHud(container);
     this.overlays = new RideOverlays(container);

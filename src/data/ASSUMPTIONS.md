@@ -51,6 +51,14 @@ Running log of every modeling assumption, per Plan.md. Update as decisions land.
   0.927, Dawn mosaic texture); no shape models in v1.
 - Skybox: Milky Way panorama, not aligned to the real galactic frame.
 
+## Ships & stations
+- The ride ship renders the official SYFY-published Rocinante print model
+  (CC-BY 3.0; see CREDITS.md), decimated to ~88k triangles. The ship is
+  drawn screen-constant (not to real scale against planets).
+- Tycho and Anderson use original procedural ring-station geometry at
+  invented sizes (2.5 km / 1.2 km ring radius) — canon gives structure, not
+  dimensions. Drop-in GLB overrides: public/models/README.md.
+
 ## Story scenarios
 - "Epstein's last flight" follows the short story "Drive": figures are
   deliberately approximate (6.8 g sustained, 37 h burn, prograde from Mars).

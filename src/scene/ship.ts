@@ -7,6 +7,7 @@
 import * as THREE from "three";
 import type { Vec3 } from "../ephemeris/vec";
 import { shipPosition, type FlightPlan } from "../planner";
+import { loadPackedGeometry, tryLoadGlb } from "./loadmodel";
 
 /** Fraction of total flight time spent flipping (each side of midpoint). */
 const FLIP_HALF_FRAC = 0.012;
@@ -15,14 +16,15 @@ export type BurnPhase = "burn" | "flip" | "brake" | "off";
 
 export class ShipVisual {
   readonly group = new THREE.Group();
+  private hull = new THREE.Group();
   private plume: THREE.Mesh;
   private plumeMat: THREE.MeshBasicMaterial;
   private qAccel = new THREE.Quaternion();
   private qDecel = new THREE.Quaternion();
   private flicker = 0;
 
-  constructor(scene: THREE.Scene) {
-    // Hull: stubby cylinder + nose cone, along +Z.
+  constructor(scene: THREE.Scene, base = "") {
+    // Fallback hull until the real model loads: cylinder + nose cone, +Z.
     const hullMat = new THREE.MeshStandardMaterial({
       color: 0xcfd6df,
       roughness: 0.6,
@@ -33,7 +35,9 @@ export class ShipVisual {
     const nose = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 12), hullMat);
     nose.rotation.x = Math.PI / 2;
     nose.position.z = 0.8;
-    this.group.add(body, nose);
+    this.hull.add(body, nose);
+    this.group.add(this.hull);
+    this.loadRealHull(base);
 
     // Drive plume: additive cone pointing aft (-Z).
     this.plumeMat = new THREE.MeshBasicMaterial({
@@ -45,11 +49,38 @@ export class ShipVisual {
     });
     this.plume = new THREE.Mesh(new THREE.ConeGeometry(0.22, 2.6, 10, 1, true), this.plumeMat);
     this.plume.rotation.x = -Math.PI / 2;
-    this.plume.position.z = -1.9;
+    this.plume.position.z = -2.7; // just aft of the 3-unit hull
     this.group.add(this.plume);
 
     this.group.visible = false;
     scene.add(this.group);
+  }
+
+  /**
+   * Swap the placeholder for the real hull: a drop-in models/custom-ship.glb
+   * wins; otherwise the packed SYFY Rocinante (CC-BY 3.0, see CREDITS.md).
+   */
+  private async loadRealHull(base: string) {
+    const glb = await tryLoadGlb(`${base}models/custom-ship.glb`, 3.0);
+    let replacement: THREE.Object3D | null = glb;
+    if (!replacement) {
+      try {
+        const geo = await loadPackedGeometry(`${base}models/rocinante.fnm`);
+        replacement = new THREE.Mesh(
+          geo,
+          new THREE.MeshStandardMaterial({
+            color: 0x5a544e, // MCRN dark hull
+            roughness: 0.55,
+            metalness: 0.4,
+            flatShading: true,
+          })
+        );
+      } catch {
+        return; // keep the placeholder
+      }
+    }
+    this.hull.clear();
+    this.hull.add(replacement);
   }
 
   /** Current phase for HUD / sound. */

@@ -12,6 +12,14 @@ No show assets are used.
   https://github.com/cosinekitty/astronomy
 
 ## 3D assets
+- **Rocinante model** — "The Expanse - The Rocinante v2.0" published by
+  SYFY on Thingiverse (thing:2060060), licensed **CC-BY 3.0**. Print
+  sections assembled, decimated and repacked for real-time rendering
+  (`tools/build-ship.ts`); retrieved via the Internet Archive mirror of the
+  Thingiverse listing. © Syfy / NBCUniversal, used under the license they
+  published it with, in an unofficial non-commercial fan project.
+- **Station models** — original procedural geometry (ring/spokes/hub), no
+  show designs referenced.
 - **433 Eros plate model** (89,398 plates) — NEAR Shoemaker MSI team, via the
   PDS Small Bodies Node, dataset NEAR-A-5-COLLECTED-MODELS-V1.0.
   https://sbnarchive.psi.edu/pds3/near/NEAR_A_5_COLLECTED_MODELS_V1_0/
