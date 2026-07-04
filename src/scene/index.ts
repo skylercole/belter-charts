@@ -126,6 +126,7 @@ export class Scene3D {
           rideMusic.start(s.scenario === "epstein" ? 45 : wallSec);
         }
         this.controls.focus(SHIP_FOCUS);
+        this.controls.rideLock = true;
         this.braceWarned = false;
         this.epitaphShown = false;
         if (s.scenario === "epstein" && s.plan) {
@@ -139,6 +140,7 @@ export class Scene3D {
         }
       }
       if (!s.ride && prev.ride) {
+        this.controls.rideLock = false;
         this.sound.stop();
         rideMusic.stop();
         this.overlays.setG(0, false);
@@ -337,7 +339,8 @@ export class Scene3D {
     } else {
       const camOff = this.controls.cameraOffset();
       this.camera.position.set(camOff.x, camOff.y, camOff.z);
-      this.camera.lookAt(0, 0, 0);
+      const look = this.controls.lookTarget();
+      this.camera.lookAt(look.x, look.y, look.z);
       if (s.ride && shake > 0) {
         // chase-cam judder scaled to thrust
         const j = 0.0035 * shake * this.controls.dist;

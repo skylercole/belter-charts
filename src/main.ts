@@ -7,7 +7,7 @@ import { mountPanel } from "./ui/panel";
 import { mountTimebar } from "./ui/timebar";
 import { store } from "./ui/store";
 
-/** Keyboard flight: H home, [ ] cycle, 1-8 planets, 9 Ceres, 0 Sol, F route. */
+/** Keyboard flight: H home, [ ] cycle, 1-8 planets, 9 Ceres, 0 Sol, G route. */
 const DIGIT_FOCUS: Record<string, string> = {
   Digit1: "mercury",
   Digit2: "venus",
@@ -30,7 +30,7 @@ function bindKeyboard(scene: Scene3D) {
     else if (e.code === "KeyH") scene.goHome();
     else if (e.code === "BracketRight") scene.cycleFocus(1);
     else if (e.code === "BracketLeft") scene.cycleFocus(-1);
-    else if (e.code === "KeyF") scene.frameRoute();
+    else if (e.code === "KeyG") scene.frameRoute();
   });
 }
 

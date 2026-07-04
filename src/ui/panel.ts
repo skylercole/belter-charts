@@ -57,9 +57,11 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
       velocity ignored — negligible above ~0.1 g sustained. Planet positions:
       astronomy-engine. Belt objects: JPL Horizons, 2340–2365.
       <br /><br />
-      Fly: click or double-click a body · <b>H</b> system view ·
-      <b>[</b> <b>]</b> cycle bodies · <b>1–8</b> planets, <b>9</b> Ceres,
-      <b>0</b> Sol · <b>F</b> frame route · <b>space</b> play.
+      Fly: click or double-click a body · <b>WASD</b>+<b>R/F</b> free flight
+      (shift = boost, speed scales with altitude) · drag aims ·
+      <b>arrows</b> orbit &amp; zoom · <b>Q/E</b> pitch · <b>H</b> system view ·
+      <b>[</b> <b>]</b> cycle · <b>1–8</b> planets, <b>9</b> Ceres, <b>0</b> Sol ·
+      <b>G</b> frame route · <b>space</b> play.
     </p>
   `;
 
