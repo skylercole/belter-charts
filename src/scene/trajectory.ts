@@ -8,6 +8,8 @@ import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { Vec3 } from "../ephemeris/vec";
 import { shipPosition, type FlightPlan } from "../planner";
 
+export const TARGET_PATH_PTS = 48;
+
 function ringTexture(): THREE.Texture {
   const c = document.createElement("canvas");
   c.width = c.height = 64;
@@ -45,7 +47,11 @@ export class TrajectoryVisual {
   private flip: THREE.Sprite;
   /** rendezvous ring at the chord end: the target WILL be here at arrival */
   private intercept: THREE.Sprite;
+  /** the target's own future path from its current position to the intercept */
+  private targetPath: THREE.Line;
+  private targetPathGeo: THREE.BufferGeometry;
   private plan: FlightPlan | null = null;
+  private expired = false;
 
   constructor(scene: THREE.Scene) {
     this.lineGeo = new THREE.BufferGeometry();
@@ -81,24 +87,81 @@ export class TrajectoryVisual {
     labelObj.center.set(-0.15, 1.6);
     this.intercept.add(labelObj);
 
-    scene.add(this.line, this.flip, this.intercept);
+    this.targetPathGeo = new THREE.BufferGeometry();
+    this.targetPathGeo.setAttribute(
+      "position",
+      new THREE.BufferAttribute(new Float32Array(TARGET_PATH_PTS * 3), 3)
+    );
+    this.targetPath = new THREE.Line(
+      this.targetPathGeo,
+      new THREE.LineDashedMaterial({
+        color: 0xffd27d,
+        dashSize: 1,
+        gapSize: 1.2,
+        transparent: true,
+        opacity: 0.55,
+      })
+    );
+    this.targetPath.frustumCulled = false;
+
+    scene.add(this.line, this.flip, this.intercept, this.targetPath);
     this.setPlan(null);
   }
 
   setPlan(plan: FlightPlan | null) {
     this.plan = plan;
-    this.line.visible = this.flip.visible = this.intercept.visible = !!plan;
-    if (plan) {
+    this.expired = false;
+    this.applyVisibility();
+  }
+
+  /** Flight over: retire the whole overlay so the target isn't "missing" a
+   * chord that no longer means anything. */
+  setExpired(expired: boolean) {
+    if (expired === this.expired) return;
+    this.expired = expired;
+    this.applyVisibility();
+  }
+
+  private applyVisibility() {
+    const on = !!this.plan && !this.expired;
+    this.line.visible = this.flip.visible = this.intercept.visible = on;
+    this.targetPath.visible = false; // shown only mid-flight via updateTargetPath
+    if (this.plan) {
       // Dash pattern scaled to the chord so it reads at any route length.
       const mat = this.line.material as THREE.LineDashedMaterial;
-      mat.dashSize = plan.distanceKm / 80;
-      mat.gapSize = plan.distanceKm / 120;
+      mat.dashSize = this.plan.distanceKm / 80;
+      mat.gapSize = this.plan.distanceKm / 120;
+      const tp = this.targetPath.material as THREE.LineDashedMaterial;
+      tp.dashSize = this.plan.distanceKm / 140;
+      tp.gapSize = this.plan.distanceKm / 170;
     }
+  }
+
+  /**
+   * Mid-flight: draw the target's future path from where it is now to the
+   * intercept point. pts = flat heliocentric km triplets, count valid points.
+   */
+  updateTargetPath(pts: Float64Array, count: number, originKm: Vec3) {
+    if (!this.plan || this.expired || count < 2) {
+      this.targetPath.visible = false;
+      return;
+    }
+    const attr = this.targetPathGeo.attributes.position as THREE.BufferAttribute;
+    const dst = attr.array as Float32Array;
+    for (let i = 0; i < count * 3; i += 3) {
+      dst[i] = pts[i] - originKm.x;
+      dst[i + 1] = pts[i + 1] - originKm.y;
+      dst[i + 2] = pts[i + 2] - originKm.z;
+    }
+    this.targetPathGeo.setDrawRange(0, count);
+    attr.needsUpdate = true;
+    this.targetPath.computeLineDistances();
+    this.targetPath.visible = true;
   }
 
   update(originKm: Vec3, kmPerPixelAt: (p: Vec3) => number) {
     const plan = this.plan;
-    if (!plan) return;
+    if (!plan || this.expired) return;
 
     const pos = this.lineGeo.attributes.position as THREE.BufferAttribute;
     pos.setXYZ(0, plan.departPos.x - originKm.x, plan.departPos.y - originKm.y, plan.departPos.z - originKm.z);

@@ -32,7 +32,7 @@ import { ShipVisual, type BurnPhase } from "./ship";
 import { EngineSound } from "./sound";
 import { TightbeamVisual } from "./tightbeam";
 import { OrbitTrails } from "./trails";
-import { TrajectoryVisual } from "./trajectory";
+import { TARGET_PATH_PTS, TrajectoryVisual } from "./trajectory";
 
 const ORBIT_SAMPLES = 360;
 const ORBIT_CACHE_DAYS = 45;
@@ -66,6 +66,7 @@ export class Scene3D {
   private braceWarned = false;
   private epitaphShown = false;
   private ttKey = "";
+  private targetPathScratch = new Float64Array(TARGET_PATH_PTS * 3);
 
   constructor(
     container: HTMLElement,
@@ -463,7 +464,30 @@ export class Scene3D {
       this.commLog.setPlan(s.plan);
       this.lastPlan = s.plan;
     }
-    this.trajectory.update(originKm, kmPerPx);
+    if (s.plan) {
+      const tSec = (s.timeMs - s.plan.depart.getTime()) / 1000;
+      // Retire the overlay once the flight is well over — otherwise the
+      // target visibly sails away from a stale chord and reads as a miss.
+      this.trajectory.setExpired(tSec > s.plan.travelTimeSec + 6 * 3600);
+      this.trajectory.update(originKm, kmPerPx);
+      // Mid-flight: the target's own future path to the intercept point.
+      if (tSec > 0 && tSec < s.plan.travelTimeSec && this.eph.exists(s.plan.destId, date)) {
+        const n = TARGET_PATH_PTS;
+        for (let i = 0; i < n; i++) {
+          const f = i / (n - 1);
+          const when = new Date(s.timeMs + (s.plan.travelTimeSec - tSec) * 1000 * f);
+          const p = this.eph.stateOf(s.plan.destId, when).pos;
+          this.targetPathScratch[i * 3] = p.x;
+          this.targetPathScratch[i * 3 + 1] = p.y;
+          this.targetPathScratch[i * 3 + 2] = p.z;
+        }
+        this.trajectory.updateTargetPath(this.targetPathScratch, n, originKm);
+      } else {
+        this.trajectory.updateTargetPath(this.targetPathScratch, 0, originKm);
+      }
+    } else {
+      this.trajectory.update(originKm, kmPerPx);
+    }
 
     // Ride bookkeeping: sound, brace warning, flip cue, g overlay, endings.
     if (s.ride && s.plan) {
