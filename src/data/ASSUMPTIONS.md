@@ -58,10 +58,16 @@ Running log of every modeling assumption, per Plan.md. Update as decisions land.
   not the numbers. The scenario ship ignores fuel/mass modeling.
 
 ## Sound & music
-- All audio is synthesized at runtime (WebAudio): drive rumble, cues, and an
-  original procedural rock loop. No licensed recordings ship with the app.
-- Users can load their own local audio file as ride music; it is stored in
-  the browser's IndexedDB only and never uploaded or redistributed.
+- Sound effects (drive rumble, klaxon, heartbeat, creaks, docking) are
+  synthesized at runtime with WebAudio.
+- Ride soundtrack: four original project-owned tracks in `public/music/`
+  ("Neon Overdrive" 1-2, ~60 s; "Chrome Overdrive" 1-2, ~250 s). Track choice
+  follows the ride's wall-clock length: under ~65 s gets a short track,
+  longer rides get an epic; the two tracks in a class alternate. No licensed
+  recordings ship with the app.
+- Mixing: soundtrack runs through a compressor; the engine rumble is ducked
+  to 45% while music plays; a lowpass pulls the music down during the
+  zero-thrust flip.
 
 ## Planner physics
 - Brachistochrone, constant thrust, flip at midpoint: t = 2*sqrt(d/a).

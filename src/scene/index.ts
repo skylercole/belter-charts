@@ -85,6 +85,7 @@ export class Scene3D {
     this.camera.up.set(0, 0, 1); // ecliptic north
 
     this.controls = new FocusControls(this.renderer.domElement, 9 * AU_KM);
+    rideMusic.setBaseUrl(base);
 
     // Skybox: Milky Way panorama (galactic orientation not aligned; v1).
     new THREE.TextureLoader().load(`${base}textures/skybox_milky_way.jpg`, (tex) => {
@@ -116,7 +117,11 @@ export class Scene3D {
       if (s.ride && !prev.ride) {
         this.sound.unlock();
         rideMusic.unlock();
-        rideMusic.start(0.35 + 0.65 * Math.min(s.accelG / 5, 1));
+        if (s.plan) {
+          // wall-clock ride length picks the track (short hop vs epic)
+          const wallSec = s.plan.travelTimeSec / 86_400 / s.speedDaysPerSec;
+          rideMusic.start(s.scenario === "epstein" ? 45 : wallSec);
+        }
         this.controls.focus(SHIP_FOCUS);
         this.braceWarned = false;
         this.epitaphShown = false;
@@ -358,7 +363,6 @@ export class Scene3D {
       const epstein = s.scenario === "epstein";
 
       this.overlays.setG(phase === "flip" || phase === "off" ? 0 : s.plan.accelG, thrusting);
-      rideMusic.setIntensity(0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1));
 
       // brace warning shortly before the flip
       const w = Math.max(s.plan.travelTimeSec * 0.012, 30);
@@ -371,8 +375,11 @@ export class Scene3D {
         this.sound.flipCue();
         this.sound.creaks();
       }
+      if (phase !== this.lastPhase) rideMusic.setFlip(phase === "flip");
 
-      const thrust = thrusting ? 0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1) : 0;
+      // rumble sits under the soundtrack: duck it while music plays
+      const duck = rideMusic.isPlaying() ? 0.45 : 1;
+      const thrust = thrusting ? (0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1)) * duck : 0;
       this.sound.setThrust(thrust);
 
       if (epstein) {

@@ -21,6 +21,11 @@ No show assets are used.
   camera, Photojournal PIA19606.
   https://photojournal.jpl.nasa.gov/catalog/PIA19606
 
+## Soundtrack
+- "Neon Overdrive" (parts 1 & 2) and "Chrome Overdrive" (parts 1 & 2) —
+  original tracks produced for this project by the project owner. All other
+  audio is synthesized at runtime.
+
 ## Conventions
 - Tycho / Anderson station placement follows IanH's Expanse wargame
   calculator conventions until canon research supersedes them.

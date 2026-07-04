@@ -196,16 +196,8 @@ button.primary.ride:hover {
 #ride-hud button:hover { color: #cdd6e4; }
 #ride-hud .hud-mute.muted { color: #55637a; }
 
-/* ---- scenario + anthem rows ---- */
+/* ---- scenario row ---- */
 .scenario-row { margin-top: 10px; }
-.anthem-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-}
-.anthem-load { display: inline-block; }
-#anthem-status { color: #7fd4a8; font-size: 10px; }
 
 /* ---- g-force vignette ---- */
 #g-vignette {
