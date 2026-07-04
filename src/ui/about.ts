@@ -46,13 +46,7 @@ function inline(s: string): string {
     );
 }
 
-export function mountAbout(app: HTMLElement, panelRoot: HTMLElement) {
-  const btn = document.createElement("button");
-  btn.className = "ghost";
-  btn.id = "about-btn";
-  btn.textContent = "ⓘ about & credits";
-  panelRoot.appendChild(btn);
-
+export function mountAbout(app: HTMLElement, trigger: HTMLElement) {
   const modal = document.createElement("div");
   modal.id = "about-modal";
   modal.classList.add("hidden");
@@ -75,13 +69,26 @@ export function mountAbout(app: HTMLElement, panelRoot: HTMLElement) {
         argue in the comments.
       </p>
       ${GITHUB_URL ? `<p><a href="${GITHUB_URL}" target="_blank" rel="noopener">Source on GitHub</a></p>` : ""}
+      <div class="about-credits">
+        <h4>Flying</h4>
+        <p>Click or double-click a body to fly to it. <b>WASD</b>+<b>R/F</b>
+        free flight (shift = boost, speed scales with altitude), drag aims,
+        <b>right-drag</b> pans, <b>arrows</b> orbit &amp; zoom, <b>Q/E</b>
+        pitch, <b>H</b> system view, <b>[ ]</b> cycle bodies, <b>1–8</b>
+        planets, <b>9</b> Ceres, <b>0</b> Sol, <b>G</b> frame route,
+        <b>space</b> play/pause.</p>
+        <h4>Fine print</h4>
+        <p>Brachistochrone, constant thrust, flip at midpoint. Gravity and
+        orbital velocity ignored — negligible above ~0.1 g sustained. Planet
+        positions: astronomy-engine. Belt objects: JPL Horizons, 2340–2365.</p>
+      </div>
       <div class="about-credits">${mdToHtml(credits)}</div>
     </div>
   `;
   app.appendChild(modal);
 
   const close = () => modal.classList.add("hidden");
-  btn.addEventListener("click", () => modal.classList.remove("hidden"));
+  trigger.addEventListener("click", () => modal.classList.remove("hidden"));
   modal.querySelector(".about-close")!.addEventListener("click", close);
   modal.addEventListener("click", (e) => {
     if (e.target === modal) close();

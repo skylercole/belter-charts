@@ -34,16 +34,18 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     <h1>Belter <span class="accent">Charts</span></h1>
     <p class="tagline">unofficial Expanse navigator</p>
 
-    <label>Hull
-      <select id="ship">${shipOptions}</select>
-    </label>
-    <p id="ship-blurb" class="blurb"></p>
+    <div class="route-row">
+      <label>From
+        <select id="origin">${options}</select>
+      </label>
+      <button id="swap-btn" title="swap origin and destination">⇅</button>
+      <label>To
+        <select id="dest">${options}</select>
+      </label>
+    </div>
 
-    <label>From
-      <select id="origin">${options}</select>
-    </label>
-    <label>To
-      <select id="dest">${options}</select>
+    <label class="hull-row">Hull
+      <select id="ship">${shipOptions}</select>
     </label>
 
     <div class="g-row" id="g-row"></div>
@@ -55,35 +57,25 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     </div>
 
     <button id="plan-btn" class="primary">Plan flight</button>
-
-    <div id="lag" class="lag"></div>
-    <button id="beam-btn" class="ghost" title="watch a comm pulse cross at lightspeed">◇ tightbeam</button>
-    <div id="result" class="result"></div>
     <div class="result-actions">
       <button id="ride-btn" class="primary ride hidden">▶ Ride the burn</button>
-      <button id="share-btn" class="ghost hidden" title="copy a link to this exact plan">⧉ share plan</button>
+      <button id="share-btn" class="ghost hidden" title="copy a link to this exact plan">⧉ share</button>
     </div>
 
-    <div class="scenario-row">
-      <button id="epstein-btn" class="ghost" title="story mode: the first Epstein burn">☄ Epstein's last flight</button>
+    <div class="lag-row">
+      <div id="lag" class="lag"></div>
+      <button id="beam-btn" class="tool-btn hidden" title="tightbeam: watch a comm pulse cross at lightspeed">◇</button>
     </div>
 
-    <p class="footnote">
-      Brachistochrone, constant thrust, flip at midpoint. Gravity and orbital
-      velocity ignored — negligible above ~0.1 g sustained. Planet positions:
-      astronomy-engine. Belt objects: JPL Horizons, 2340–2365.
-      <br /><br />
-      Fly: click or double-click a body · <b>WASD</b>+<b>R/F</b> free flight
-      (shift = boost, speed scales with altitude) · drag aims ·
-      <b>right-drag</b> pans ·
-      <b>arrows</b> orbit &amp; zoom · <b>Q/E</b> pitch · <b>H</b> system view ·
-      <b>[</b> <b>]</b> cycle · <b>1–8</b> planets, <b>9</b> Ceres, <b>0</b> Sol ·
-      <b>G</b> frame route · <b>space</b> play.
-    </p>
+    <div id="result" class="result"></div>
+
+    <div class="tool-row">
+      <button id="epstein-btn" class="tool-btn wide" title="story mode: ride the first Epstein burn">☄ Epstein's last flight</button>
+      <button id="about-btn" class="tool-btn" title="about, credits, controls">ⓘ</button>
+    </div>
   `;
 
   const ship = root.querySelector<HTMLSelectElement>("#ship")!;
-  const shipBlurb = root.querySelector<HTMLParagraphElement>("#ship-blurb")!;
   const origin = root.querySelector<HTMLSelectElement>("#origin")!;
   const dest = root.querySelector<HTMLSelectElement>("#dest")!;
   const gRow = root.querySelector<HTMLDivElement>("#g-row")!;
@@ -106,6 +98,16 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
   });
   origin.addEventListener("change", () => store.getState().setOrigin(origin.value));
   dest.addEventListener("change", () => store.getState().setDest(dest.value));
+  root.querySelector<HTMLButtonElement>("#swap-btn")!.addEventListener("click", () => {
+    const s = store.getState();
+    const o = s.originId;
+    s.setOrigin(s.destId);
+    s.setDest(o);
+    // re-read: the earlier snapshot is stale after the two set calls
+    const now = store.getState();
+    origin.value = now.originId;
+    dest.value = now.destId;
+  });
 
   gRow.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".g-btn");
@@ -206,7 +208,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
   function renderShip() {
     const s = store.getState();
     const hull = SHIP_BY_ID.get(s.shipId)!;
-    shipBlurb.textContent = hull.blurb;
+    ship.title = hull.blurb;
     gRow.innerHTML = hull.gPresets
       .map(
         (g) =>

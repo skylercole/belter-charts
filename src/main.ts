@@ -58,7 +58,7 @@ async function boot() {
 
   mountPanel(document.getElementById("panel")!, eph);
   mountTimebar(document.getElementById("timebar")!);
-  mountAbout(document.getElementById("app")!, document.getElementById("panel")!);
+  mountAbout(document.getElementById("app")!, document.getElementById("about-btn")!);
 
   if (shared) {
     // re-plan the shared route

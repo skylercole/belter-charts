@@ -165,8 +165,7 @@ body,
 .warning {
   font-size: 10px;
   line-height: 1.4;
-  margin: 0 0 10px;
-  min-height: 26px;
+  margin: 0 0 8px;
 }
 .warning[data-severity="0"] { color: #6d8f7d; }
 .warning[data-severity="1"] { color: #d8bd8a; }
@@ -261,8 +260,51 @@ button.primary.ride:hover {
 #ride-hud button:hover { color: #cdd6e4; }
 #ride-hud .hud-mute.muted { color: #55637a; }
 
-/* ---- scenario row ---- */
-.scenario-row { margin-top: 10px; }
+/* ---- compact panel layout ---- */
+.route-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 6px;
+  align-items: end;
+  margin-bottom: 8px;
+}
+.route-row label { margin-bottom: 0 !important; }
+#swap-btn {
+  background: #0d1422;
+  color: #8899aa;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  width: 26px;
+  height: 30px;
+  font: inherit;
+  cursor: pointer;
+}
+#swap-btn:hover { color: #cdd6e4; border-color: #3a628f; }
+.hull-row { margin-bottom: 8px !important; }
+.lag-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.lag-row .lag { margin-top: 0; flex: 1; }
+.tool-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+.tool-btn {
+  background: none;
+  border: 1px dashed #24354f;
+  border-radius: 4px;
+  color: #8fb8d8;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.tool-btn:hover { border-color: #3a628f; color: #b8d8f0; }
+.tool-btn.wide { flex: 1; text-align: left; }
 
 /* ---- honesty toggle ---- */
 .honesty-row {
@@ -302,13 +344,13 @@ button.primary.ride:hover {
 .result .honesty-compare span.active b { color: #ffd27d; }
 .result-actions {
   display: flex;
-  gap: 8px;
-  align-items: center;
+  gap: 6px;
+  align-items: stretch;
+  margin-top: 6px;
 }
 .result-actions .ride { flex: 1; }
 
 /* ---- about modal ---- */
-#about-btn { width: 100%; margin-top: 8px; }
 #about-modal {
   position: absolute;
   inset: 0;
