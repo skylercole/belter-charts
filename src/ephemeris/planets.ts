@@ -5,7 +5,9 @@
  */
 import {
   Body,
+  GeoMoonState,
   HelioState,
+  JupiterMoons,
   KM_PER_AU,
   Rotation_EQJ_ECL,
 } from "astronomy-engine";
@@ -47,6 +49,27 @@ const BODY_MAP: Record<PlanetName, Body> = {
 
 export function planetState(name: PlanetName, date: Date): StateVector {
   const s = HelioState(BODY_MAP[name], date);
+  const pos = rotate(s.x * KM_PER_AU, s.y * KM_PER_AU, s.z * KM_PER_AU);
+  const vel = rotate(
+    s.vx * KM_PER_AU_PER_DAY,
+    s.vy * KM_PER_AU_PER_DAY,
+    s.vz * KM_PER_AU_PER_DAY
+  );
+  return { pos, vel };
+}
+
+export type EngineMoon = "luna" | "io" | "europa" | "ganymede" | "callisto";
+
+/**
+ * Parent-relative state of an astronomy-engine-modeled moon, in the shared
+ * frame (ecliptic J2000, km, km/s). Luna via GeoMoonState (geocentric),
+ * Galileans via JupiterMoons (jovicentric).
+ */
+export function engineMoonState(name: EngineMoon, date: Date): StateVector {
+  const s =
+    name === "luna"
+      ? GeoMoonState(date)
+      : JupiterMoons(date)[name];
   const pos = rotate(s.x * KM_PER_AU, s.y * KM_PER_AU, s.z * KM_PER_AU);
   const vel = rotate(
     s.vx * KM_PER_AU_PER_DAY,

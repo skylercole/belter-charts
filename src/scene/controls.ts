@@ -155,7 +155,9 @@ export class FocusControls {
     this.focusId = bodyId;
     this.transition = 0;
     const def = BODY_BY_ID.get(bodyId);
-    this.distTarget = def ? Math.max(def.radiusKm * 6, 40) : 2500; // pseudo: chase distance
+    this.distTarget = def
+      ? (def.focusDistKm ?? Math.max(def.radiusKm * 6, 40))
+      : 2500; // pseudo-focus: chase distance
     this.clampDist();
   }
 

@@ -174,7 +174,8 @@ export class Scene3D {
 
   private buildOrbitLines() {
     for (const def of BODIES) {
-      if (def.kind === "star") continue;
+      // moons: heliocentric orbit lines are illegible wiggles; skip
+      if (def.kind === "star" || def.kind === "moon") continue;
       const geo = new THREE.BufferGeometry();
       geo.setAttribute(
         "position",
@@ -358,22 +359,43 @@ export class Scene3D {
 
     const kmPerPx = (p: Vec3) => this.kmPerPixelAt(p, originKm, this.camera.position);
 
-    // Bodies
+    // Bodies (BODIES order puts parents before their moons)
+    const framePos = new Map<string, Vec3>();
     for (const v of this.visuals.values()) {
       // timeline existence: Eros after Venus impact, the Ring before it appears
       const exists = this.eph.exists(v.def.id, date);
       v.group.visible = exists;
-      v.labelEl.style.display = exists ? "" : "none";
-      if (!exists) continue;
+      if (!exists) {
+        v.label.visible = false;
+        continue;
+      }
       const pos =
         v.def.kind === "star"
           ? { x: 0, y: 0, z: 0 }
           : this.eph.stateOf(v.def.id, date).pos;
+      framePos.set(v.def.id, pos);
       v.group.position.set(pos.x - originKm.x, pos.y - originKm.y, pos.z - originKm.z);
 
       const px = kmPerPx(pos);
+
+      // moons declutter: hidden until they visually separate from the parent
+      let moonVisible = true;
+      if (v.def.kind === "moon") {
+        const parentPos = framePos.get(v.def.moon!.parent);
+        if (parentPos) {
+          const sepPx =
+            Math.hypot(
+              pos.x - parentPos.x,
+              pos.y - parentPos.y,
+              pos.z - parentPos.z
+            ) / px;
+          moonVisible = sepPx > 26;
+        }
+      }
+      v.label.visible = moonVisible;
+
       const apparentPx = (2 * v.def.radiusKm) / px;
-      const showDot = apparentPx < 5 && !cockpitActive;
+      const showDot = apparentPx < 5 && !cockpitActive && moonVisible;
       v.sprite.visible = showDot;
       if (showDot) {
         const sc = (v.def.kind === "planet" ? 7 : 5) * px;
@@ -399,7 +421,7 @@ export class Scene3D {
     // Orbit lines: refresh samples when the clock drifts, rewrite
     // origin-relative coords every frame.
     for (const def of BODIES) {
-      if (def.kind === "star") continue;
+      if (def.kind === "star" || def.kind === "moon") continue;
       const entry = this.orbitLines.get(def.id)!;
       const exists = this.eph.exists(def.id, date);
       entry.line.visible = exists;

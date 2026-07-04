@@ -10,9 +10,9 @@
  * with Keplerian propagation if it ever matters.
  */
 import { BODY_BY_ID } from "../data/bodies";
-import { planetState, type PlanetName } from "./planets";
+import { engineMoonState, planetState, type PlanetName } from "./planets";
 import { SmallBodyEphemeris, type StateVector } from "./smallbody";
-import { rotateZ } from "./vec";
+import { add, rotateZ } from "./vec";
 
 export type { StateVector };
 
@@ -45,6 +45,26 @@ export class Ephemeris {
           pos: rotateZ(parentState.pos, offsetDeg * DEG),
           vel: rotateZ(parentState.vel, offsetDeg * DEG),
         };
+      }
+      case "moon": {
+        const m = def.moon!;
+        const parent = this.stateOf(m.parent, date);
+        let rel: StateVector;
+        if (m.engine) {
+          rel = engineMoonState(m.engine, date);
+        } else {
+          // circular Kepler orbit in the ecliptic; negative period = retrograde
+          const { aKm, periodDays, phaseDeg } = m.kepler!;
+          const n = (2 * Math.PI) / (periodDays * 86_400);
+          const a = (phaseDeg * Math.PI) / 180 + n * (date.getTime() / 1000);
+          const v = Math.abs(n) * aKm;
+          const sgn = Math.sign(n);
+          rel = {
+            pos: { x: aKm * Math.cos(a), y: aKm * Math.sin(a), z: 0 },
+            vel: { x: -v * Math.sin(a) * sgn, y: v * Math.cos(a) * sgn, z: 0 },
+          };
+        }
+        return { pos: add(parent.pos, rel.pos), vel: add(parent.vel, rel.vel) };
       }
       case "construct": {
         // fixed circular heliocentric orbit in the ecliptic

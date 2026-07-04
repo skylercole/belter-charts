@@ -26,6 +26,17 @@ Running log of every modeling assumption, per Plan.md. Update as decisions land.
 - Frame everywhere: heliocentric ecliptic J2000, km, km/s. Map view is the
   ecliptic seen from north (+x vernal equinox, +y ecliptic 90°).
 
+## Moons
+- Luna and the four Galileans (Io, Europa, Ganymede, Callisto) use
+  astronomy-engine's dedicated lunar/Jovian-moon models — real positions,
+  validated by orbital-radius tests.
+- Phobos, Deimos, Titan and Phoebe use circular Kepler orbits around their
+  parent in the ecliptic plane, correct semi-major axis and period,
+  arbitrary phase (Phoebe retrograde). Their positions are structurally
+  right but not Horizons-accurate.
+- Moons are hidden (dot + label) until they visually separate from their
+  parent by >26 px, so the system view stays legible.
+
 ## Fictional stations (Phase 0 approximation)
 - Tycho Station: Ceres' orbit, leading by 60° (IanH wargame convention).
   Implemented as a +60° rotation of Ceres' state vector about the ecliptic

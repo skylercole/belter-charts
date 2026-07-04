@@ -14,6 +14,9 @@ export interface BodyVisual {
   mesh: THREE.Mesh | null;
   sprite: THREE.Sprite;
   labelEl: HTMLDivElement;
+  /** the CSS2D object — toggle .visible, not the element's display
+   * (CSS2DRenderer overwrites display every frame) */
+  label: CSS2DObject;
   /** second label line: travel time from the planner origin */
   timeEl: HTMLSpanElement;
 }
@@ -188,7 +191,7 @@ export function buildBodies(
     group.add(label);
 
     scene.add(group);
-    const visual: BodyVisual = { def, group, mesh, sprite, labelEl, timeEl };
+    const visual: BodyVisual = { def, group, mesh, sprite, labelEl, label, timeEl };
     visuals.set(def.id, visual);
 
     if (def.model) {

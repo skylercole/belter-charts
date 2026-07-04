@@ -132,9 +132,29 @@ export class Map2D {
 
     // Orbits + bodies
     ctx.font = "11px ui-monospace, monospace";
+    const framePos = new Map<string, { x: number; y: number }>();
     for (const body of BODIES) {
       if (body.kind === "star") continue;
       if (!this.eph.exists(body.id, date)) continue;
+      if (body.kind === "moon") {
+        // moons: dot + label only once visually separated from the parent
+        const s = this.eph.stateOf(body.id, date);
+        framePos.set(body.id, { x: s.pos.x, y: s.pos.y });
+        const parent = framePos.get(body.moon!.parent);
+        if (!parent) continue;
+        const sepPx =
+          Math.hypot(s.pos.x - parent.x, s.pos.y - parent.y) / this.kmPerPx;
+        if (sepPx < 26) continue;
+        const [bx, by] = this.kmToScreen(s.pos.x, s.pos.y);
+        if (bx < -50 || bx > w + 50 || by < -50 || by > h + 50) continue;
+        ctx.fillStyle = body.color;
+        ctx.beginPath();
+        ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = body.color + "cc";
+        ctx.fillText(body.name, bx + 7, by + 4);
+        continue;
+      }
       const orbit = this.orbitPath(body, jdNow);
       ctx.strokeStyle = body.color + "38";
       ctx.lineWidth = 1;
@@ -147,6 +167,7 @@ export class Map2D {
       ctx.stroke();
 
       const s = this.eph.stateOf(body.id, date);
+      framePos.set(body.id, { x: s.pos.x, y: s.pos.y });
       const [bx, by] = this.kmToScreen(s.pos.x, s.pos.y);
       if (bx < -50 || bx > w + 50 || by < -50 || by > h + 50) continue;
       const r = body.kind === "planet" ? 4 : body.kind === "station" ? 2.5 : 3;

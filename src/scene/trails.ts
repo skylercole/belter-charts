@@ -30,7 +30,7 @@ export class OrbitTrails {
 
   constructor(scene: THREE.Scene) {
     for (const def of BODIES) {
-      if (def.kind === "star" || def.kind === "station") continue;
+      if (def.kind === "star" || def.kind === "station" || def.kind === "moon") continue;
       const geo = new THREE.BufferGeometry();
       geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(POINTS * 3), 3));
       geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(POINTS * 3), 3));

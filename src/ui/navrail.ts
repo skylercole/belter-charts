@@ -12,12 +12,16 @@ export interface NavRailHooks {
 }
 
 const GROUPS: { title: string; ids: string[] }[] = [
-  { title: "inner", ids: ["mercury", "venus", "earth", "mars"] },
+  { title: "inner", ids: ["mercury", "venus", "earth", "luna", "mars"] },
   {
     title: "belt",
     ids: ["ceres", "eros", "vesta", "pallas", "hygiea", "juno", "tycho", "anderson"],
   },
   { title: "outer", ids: ["jupiter", "saturn", "uranus", "neptune"] },
+  {
+    title: "moons",
+    ids: ["io", "europa", "ganymede", "callisto", "titan", "phoebe"],
+  },
 ];
 
 export function mountNavRail(container: HTMLElement, hooks: NavRailHooks) {
