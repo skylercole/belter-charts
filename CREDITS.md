@@ -20,6 +20,12 @@ No show assets are used.
   published it with, in an unofficial non-commercial fan project.
 - **Station models** — original procedural geometry (ring/spokes/hub), no
   show designs referenced.
+- **Small-body models** (Vesta, Pallas, Hygiea, Juno, Phobos, Deimos,
+  Phoebe) — original procedural meshes (tools/build-rocks.ts).
+- **Io / Europa / Ganymede / Callisto / Titan textures** — original
+  stylized procedural art painted at runtime (src/scene/proceduraltex.ts);
+  not derived from spacecraft imagery.
+- **Earth clouds** — Solar System Scope texture pack, CC BY 4.0.
 - **433 Eros plate model** (89,398 plates) — NEAR Shoemaker MSI team, via the
   PDS Small Bodies Node, dataset NEAR-A-5-COLLECTED-MODELS-V1.0.
   https://sbnarchive.psi.edu/pds3/near/NEAR_A_5_COLLECTED_MODELS_V1_0/

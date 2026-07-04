@@ -6,7 +6,14 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
-export async function loadPackedGeometry(url: string): Promise<THREE.BufferGeometry> {
+export interface PackedMesh {
+  geometry: THREE.BufferGeometry;
+  /** FNM2 meshes are unit-radius and carry vertex colors; scale by body radius. */
+  unitScale: boolean;
+  hasColors: boolean;
+}
+
+export async function loadPackedMesh(url: string): Promise<PackedMesh> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`failed to load ${url}: HTTP ${res.status}`);
   const buf = await res.arrayBuffer();
@@ -17,7 +24,8 @@ export async function loadPackedGeometry(url: string): Promise<THREE.BufferGeome
     view.getUint8(2),
     view.getUint8(3)
   );
-  if (magic !== "FNM1") throw new Error(`bad mesh magic in ${url}`);
+  if (magic !== "FNM1" && magic !== "FNM2") throw new Error(`bad mesh magic in ${url}`);
+  const v2 = magic === "FNM2";
   const v = view.getUint32(4, true);
   const t = view.getUint32(8, true);
   const positions = new Float32Array(buf, 12, v * 3);
@@ -25,8 +33,17 @@ export async function loadPackedGeometry(url: string): Promise<THREE.BufferGeome
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geo.setIndex(new THREE.BufferAttribute(indices, 1));
+  if (v2) {
+    const rgb = new Uint8Array(buf, 12 + v * 12 + t * 12, v * 3);
+    geo.setAttribute("color", new THREE.BufferAttribute(rgb, 3, true));
+  }
   geo.computeVertexNormals();
-  return geo;
+  return { geometry: geo, unitScale: v2, hasColors: v2 };
+}
+
+/** Back-compat helper for FNM1 call sites. */
+export async function loadPackedGeometry(url: string): Promise<THREE.BufferGeometry> {
+  return (await loadPackedMesh(url)).geometry;
 }
 
 /** Probe for a drop-in GLB; resolves null when absent. */

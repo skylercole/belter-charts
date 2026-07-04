@@ -34,6 +34,7 @@ const TEXTURES: Array<{ file: string; url: string }> = [
   { file: "earth.jpg", url: `${SSS}/2k_earth_daymap.jpg` },
   { file: "mars.jpg", url: `${SSS}/2k_mars.jpg` },
   { file: "moon.jpg", url: `${SSS}/2k_moon.jpg` },
+  { file: "earth_clouds.jpg", url: `${SSS}/2k_earth_clouds.jpg` },
   { file: "jupiter.jpg", url: `${SSS}/2k_jupiter.jpg` },
   { file: "saturn.jpg", url: `${SSS}/2k_saturn.jpg` },
   { file: "saturn_ring.png", url: `${SSS}/2k_saturn_ring_alpha.png` },

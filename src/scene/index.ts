@@ -97,6 +97,9 @@ export class Scene3D {
       tex.colorSpace = THREE.SRGBColorSpace;
       this.scene.background = tex;
       this.scene.backgroundIntensity = 0.35;
+      // PBR reflections on hulls/stations from the same panorama
+      this.scene.environment = tex;
+      this.scene.environmentIntensity = 0.5;
     });
 
     this.sunLight = new THREE.PointLight(0xffffff, 2.4, 0, 0);

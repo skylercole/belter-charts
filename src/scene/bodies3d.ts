@@ -6,7 +6,51 @@
 import * as THREE from "three";
 import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { BODIES, type BodyDef } from "../data/bodies";
-import { loadPackedGeometry, tryLoadGlb } from "./loadmodel";
+import { loadPackedMesh, tryLoadGlb } from "./loadmodel";
+import { proceduralTexture } from "./proceduraltex";
+
+/** Bodies that get a fresnel atmosphere rim (color, strength). */
+const ATMOSPHERES: Record<string, { color: number; strength: number }> = {
+  earth: { color: 0x6ab8ff, strength: 1.0 },
+  venus: { color: 0xe8c88a, strength: 0.8 },
+  mars: { color: 0xd88a5a, strength: 0.45 },
+  titan: { color: 0xe8a04a, strength: 1.2 },
+};
+
+function atmosphereMesh(radiusKm: number, color: number, strength: number): THREE.Mesh {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(color) },
+      uStrength: { value: strength },
+    },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vView;
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vView = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColor;
+      uniform float uStrength;
+      varying vec3 vNormal;
+      varying vec3 vView;
+      void main() {
+        float rim = 1.0 - abs(dot(vNormal, vView));
+        float a = pow(rim, 3.2) * uStrength;
+        gl_FragColor = vec4(uColor, a);
+      }
+    `,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.FrontSide,
+  });
+  return new THREE.Mesh(new THREE.SphereGeometry(radiusKm * 1.03, 48, 24), mat);
+}
 
 export interface BodyVisual {
   def: BodyDef;
@@ -19,6 +63,24 @@ export interface BodyVisual {
   label: CSS2DObject;
   /** second label line: travel time from the planner origin */
   timeEl: HTMLSpanElement;
+}
+
+let glowTex: THREE.Texture | null = null;
+function glowTexture(): THREE.Texture {
+  if (glowTex) return glowTex;
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.25, "rgba(255,255,255,0.5)");
+  g.addColorStop(0.6, "rgba(255,255,255,0.12)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  glowTex = new THREE.CanvasTexture(c);
+  glowTex.colorSpace = THREE.SRGBColorSpace;
+  return glowTex;
 }
 
 function dotTexture(): THREE.Texture {
@@ -76,26 +138,45 @@ function buildMesh(
   base: string
 ): THREE.Mesh | null {
   if (def.kind === "construct") {
-    // the Ring: an unlit thousand-km torus standing on the ecliptic
+    // the Ring: emissive gate torus standing on the ecliptic, with a faint
+    // glow disc across the aperture
     const geo = new THREE.TorusGeometry(def.radiusKm, def.radiusKm * 0.045, 12, 96);
-    const mat = new THREE.MeshBasicMaterial({ color: def.color });
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x1a3a38,
+      emissive: new THREE.Color(def.color),
+      emissiveIntensity: 1.6,
+      roughness: 0.4,
+      metalness: 0.6,
+    });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = Math.PI / 2;
+    const aperture = new THREE.Mesh(
+      new THREE.CircleGeometry(def.radiusKm * 0.96, 64),
+      new THREE.MeshBasicMaterial({
+        color: def.color,
+        transparent: true,
+        opacity: 0.1,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      })
+    );
+    mesh.add(aperture);
     return mesh;
   }
   if (def.model) return null; // swapped in asynchronously
 
   const geo = new THREE.SphereGeometry(def.radiusKm, 48, 24);
+  const map = def.texture
+    ? loadTex(texLoader, base, def.texture)
+    : proceduralTexture(def.id);
   let mat: THREE.Material;
   if (def.kind === "star") {
-    mat = new THREE.MeshBasicMaterial({
-      map: def.texture ? loadTex(texLoader, base, def.texture) : null,
-      color: 0xffffff,
-    });
+    mat = new THREE.MeshBasicMaterial({ map, color: 0xffffff });
   } else {
     mat = new THREE.MeshStandardMaterial({
-      map: def.texture ? loadTex(texLoader, base, def.texture) : null,
-      color: def.texture ? 0xffffff : def.color,
+      map,
+      color: map ? 0xffffff : def.color,
       roughness: 1,
       metalness: 0,
     });
@@ -195,22 +276,64 @@ export function buildBodies(
     visuals.set(def.id, visual);
 
     if (def.model) {
-      loadPackedGeometry(`${base}models/${def.model}`).then((geo) => {
-        // PDS plate models have inconsistent triangle winding; flat shading
-        // with DoubleSide sidesteps both the winding and the vertex-normal
-        // artifacts, and reads well on an 89k-facet rock.
+      loadPackedMesh(`${base}models/${def.model}`).then(({ geometry, unitScale, hasColors }) => {
+        // FNM1 (Eros): PDS plate model, inconsistent winding -> flat +
+        // DoubleSide. FNM2 (procedural rocks): unit radius, vertex colors,
+        // smooth shading.
         const m = new THREE.Mesh(
-          geo,
+          geometry,
           new THREE.MeshStandardMaterial({
-            color: 0x9a8878,
+            color: hasColors ? 0xffffff : 0x9a8878,
             roughness: 1,
-            flatShading: true,
-            side: THREE.DoubleSide,
+            flatShading: !hasColors,
+            side: hasColors ? THREE.FrontSide : THREE.DoubleSide,
+            vertexColors: hasColors,
           })
         );
+        if (unitScale) m.scale.setScalar(def.radiusKm);
         group.add(m);
         visual.mesh = m;
       });
+    }
+
+    // planet extras: atmosphere rim, Earth's cloud layer
+    const atmo = ATMOSPHERES[def.id];
+    if (atmo) group.add(atmosphereMesh(def.radiusKm, atmo.color, atmo.strength));
+    if (def.id === "earth") {
+      const clouds = new THREE.Mesh(
+        new THREE.SphereGeometry(def.radiusKm * 1.012, 48, 24),
+        new THREE.MeshStandardMaterial({
+          map: loadTex(texLoader, base, "earth_clouds.jpg"),
+          transparent: true,
+          opacity: 0.85,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          roughness: 1,
+        })
+      );
+      clouds.rotation.x = Math.PI / 2;
+      clouds.name = "clouds";
+      group.add(clouds);
+    }
+    // sun corona glow
+    if (def.kind === "star") {
+      for (const [size, alpha] of [
+        [3.2, 0.55],
+        [7.5, 0.22],
+      ] as const) {
+        const sp = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: glowTexture(),
+            color: 0xffd9a0,
+            transparent: true,
+            opacity: alpha,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          })
+        );
+        sp.scale.setScalar(def.radiusKm * 2 * size);
+        group.add(sp);
+      }
     }
   }
   return visuals;

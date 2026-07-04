@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "fetch-horizons": "tsx tools/fetch-horizons.ts",
-    "fetch-assets": "tsx tools/fetch-assets.ts"
+    "fetch-assets": "tsx tools/fetch-assets.ts",
+    "build-rocks": "tsx tools/build-rocks.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",

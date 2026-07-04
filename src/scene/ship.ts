@@ -7,7 +7,7 @@
 import * as THREE from "three";
 import type { Vec3 } from "../ephemeris/vec";
 import { shipPosition, type FlightPlan } from "../planner";
-import { loadPackedGeometry, tryLoadGlb } from "./loadmodel";
+import { loadPackedMesh, tryLoadGlb } from "./loadmodel";
 
 /** Fraction of total flight time spent flipping (each side of midpoint). */
 const FLIP_HALF_FRAC = 0.012;
@@ -72,13 +72,13 @@ export class ShipVisual {
     let replacement: THREE.Object3D | null = glb;
     if (!replacement) {
       try {
-        const geo = await loadPackedGeometry(`${base}models/rocinante.fnm`);
+        const { geometry: geo } = await loadPackedMesh(`${base}models/rocinante.fnm`);
         replacement = new THREE.Mesh(
           geo,
           new THREE.MeshStandardMaterial({
             color: 0x5a544e, // MCRN dark hull
-            roughness: 0.55,
-            metalness: 0.4,
+            roughness: 0.42,
+            metalness: 0.62, // picks up the env panorama
             flatShading: true,
           })
         );
