@@ -15,7 +15,7 @@ import type { Ephemeris } from "../ephemeris";
 import { sampleOrbitPath, type OrbitPath } from "../ephemeris/orbitpath";
 import { dateToJd } from "../ephemeris/time";
 import type { Vec3 } from "../ephemeris/vec";
-
+import { distance } from "../ephemeris/vec";
 import { effectiveAccelG, planFlight, shipPosition } from "../planner";
 import { fmtDuration } from "../ui/format";
 import { store, type AppState } from "../ui/store";
@@ -39,6 +39,8 @@ const ORBIT_CACHE_DAYS = 45;
 const AU_KM = 149_597_870.7;
 /** pseudo focus id: midpoint of the planned route */
 const ROUTE_FOCUS = "__route__";
+/** pseudo focus id: live midpoint between ship and target (docking view) */
+const DOCK_FOCUS = "__dock__";
 /** travel-time labels refresh when the clock crosses a 6 h bucket */
 const TT_BUCKET_MS = 6 * 3_600_000;
 
@@ -67,6 +69,7 @@ export class Scene3D {
   private epitaphShown = false;
   private ttKey = "";
   private targetPathScratch = new Float64Array(TARGET_PATH_PTS * 3);
+  private rideBaseSpeed = 2;
 
   constructor(
     container: HTMLElement,
@@ -124,6 +127,7 @@ export class Scene3D {
     // AudioContexts are created within a user gesture.
     store.subscribe((s, prev) => {
       if (s.ride && !prev.ride) {
+        this.rideBaseSpeed = s.speedDaysPerSec;
         this.sound.unlock();
         rideMusic.unlock();
         if (s.plan) {
@@ -151,7 +155,7 @@ export class Scene3D {
         rideMusic.stop();
         this.overlays.setG(0, false);
         this.overlays.hideEpitaph();
-        if (this.controls.focusId === SHIP_FOCUS) {
+        if (this.controls.focusId === SHIP_FOCUS || this.controls.focusId === DOCK_FOCUS) {
           this.controls.focus(
             prev.scenario === "epstein" ? "mars" : (s.plan?.destId ?? s.destId)
           );
@@ -303,6 +307,17 @@ export class Scene3D {
           x: (s.plan.departPos.x + s.plan.arrivePos.x) / 2,
           y: (s.plan.departPos.y + s.plan.arrivePos.y) / 2,
           z: (s.plan.departPos.z + s.plan.arrivePos.z) / 2,
+        };
+      }
+      if (id === DOCK_FOCUS) {
+        if (!s.plan) return this.eph.stateOf(s.destId, d).pos;
+        const t = (d.getTime() - s.plan.depart.getTime()) / 1000;
+        const ship = shipPosition(s.plan, t);
+        const target = this.eph.stateOf(s.plan.destId, d).pos;
+        return {
+          x: (ship.x + target.x) / 2,
+          y: (ship.y + target.y) / 2,
+          z: (ship.z + target.z) / 2,
         };
       }
       return this.eph.stateOf(id, d).pos;
@@ -513,6 +528,26 @@ export class Scene3D {
       const duck = rideMusic.isPlaying() ? 0.45 : 1;
       const thrust = thrusting ? (0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1)) * duck : 0;
       this.sound.setThrust(thrust);
+
+      // Docking view: braking makes the target angularly diverge from the
+      // intercept point until the final seconds (lateral shrinks ~t, range
+      // ~t^2). In the last quarter, pull the chase cam back to frame both
+      // ship and target so the convergence is visible, and taper sim speed
+      // so the merge doesn't flash past.
+      const progress = tSec / s.plan.travelTimeSec;
+      if (!epstein && shipState && progress > 0.75 && progress < 1) {
+        if (!s.cockpit) {
+          // focus the live ship-target midpoint: both guaranteed in frame
+          if (this.controls.focusId !== DOCK_FOCUS) this.controls.focus(DOCK_FOCUS);
+          const target = this.eph.stateOf(s.plan.destId, date).pos;
+          const sep = distance(shipState.pos, target);
+          this.controls.setDistTarget(Math.max(2500, sep * 1.15));
+        }
+        if (progress > 0.9) {
+          const f = Math.max(0.15, (1 - progress) / 0.1);
+          s.setSpeed(this.rideBaseSpeed * f);
+        }
+      }
 
       if (epstein) {
         // fuel out at the pseudo-flip: cut everything, show the epitaph
