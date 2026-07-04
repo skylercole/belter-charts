@@ -18,6 +18,12 @@ No show assets are used.
   (`tools/build-ship.ts`); retrieved via the Internet Archive mirror of the
   Thingiverse listing. © Syfy / NBCUniversal, used under the license they
   published it with, in an unofficial non-commercial fan project.
+- **Razorback model** — "Razorback from The Expanse" by Dmytry Machetovich
+  (Thingiverse thing:5441456, **CC-BY 4.0**); hull + nose sections merged
+  and repacked (`tools/build-model.ts`), via the Internet Archive mirror.
+- **Donnager model** — "Donnager Single print" by Ryan Howard /
+  ryanthecoder (Thingiverse thing:1249800, **CC-BY 3.0**); decimated and
+  repacked, via the Internet Archive mirror.
 - **Station models** — original procedural geometry (ring/spokes/hub), no
   show designs referenced.
 - **Small-body models** (Vesta, Pallas, Hygiea, Juno, Phobos, Deimos,

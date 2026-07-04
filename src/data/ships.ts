@@ -11,6 +11,12 @@ export interface ShipClass {
   /** g presets offered in the panel; last one is the hull's max burn. */
   gPresets: number[];
   defaultG: number;
+  /** packed hull mesh under /models (nose +Z, length-normalized to 3). */
+  model?: string;
+  /** real hull length, metres — drives close-up scale */
+  lengthM: number;
+  /** hull material tint */
+  modelColor: number;
 }
 
 export const SHIPS: ShipClass[] = [
@@ -20,20 +26,38 @@ export const SHIPS: ShipClass[] = [
     blurb: "Canterbury-type water hauler. Slow, honest work.",
     gPresets: [0.1, 0.3, 0.5],
     defaultG: 0.3,
+    lengthM: 250,
+    modelColor: 0x8a8578,
   },
   {
     id: "corvette",
-    name: "Frigate-class corvette",
-    blurb: "Military hull, Epstein drive, crash couches for everyone.",
+    name: "Corvette (Rocinante)",
+    blurb: "Corvette-class frigate. Military hull, Epstein drive, crash couches for everyone.",
     gPresets: [0.3, 1, 2, 5],
     defaultG: 1,
+    model: "rocinante.fnm",
+    lengthM: 46,
+    modelColor: 0x5a544e,
   },
   {
     id: "pinnace",
-    name: "Racing pinnace",
-    blurb: "All drive, no cargo. Inner-system rich kid toy.",
+    name: "Racing pinnace (Razorback)",
+    blurb: "All drive, no cargo. Jules-Pierre Mao's rich-kid toy.",
     gPresets: [1, 2, 5, 8, 12],
     defaultG: 2,
+    model: "razorback.fnm",
+    lengthM: 34,
+    modelColor: 0xd8d2c8,
+  },
+  {
+    id: "battleship",
+    name: "Battleship (Donnager-class)",
+    blurb: "Quarter-kilometre of MCRN flagship. Escorts optional.",
+    gPresets: [0.5, 1, 2, 5],
+    defaultG: 1,
+    model: "donnager.fnm",
+    lengthM: 476,
+    modelColor: 0x4c4844,
   },
 ];
 

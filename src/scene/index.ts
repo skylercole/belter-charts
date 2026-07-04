@@ -116,6 +116,7 @@ export class Scene3D {
     this.visuals = buildBodies(this.scene, base, (id) => this.controls.focus(id));
     this.trajectory = new TrajectoryVisual(this.scene);
     this.shipVisual = new ShipVisual(this.scene, base);
+    this.shipVisual.setHull(store.getState().shipId);
     this.tightbeam = new TightbeamVisual(this.scene);
     this.hud = new RideHud(container);
     this.overlays = new RideOverlays(container);
@@ -198,6 +199,7 @@ export class Scene3D {
         this.sound.setMuted(s.muted);
         rideMusic.setMuted(s.muted);
       }
+      if (s.shipId !== prev.shipId) this.shipVisual.setHull(s.shipId);
     });
 
     this.resize(container);

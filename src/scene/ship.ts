@@ -5,19 +5,13 @@
  * and the hull rotates 180° — the flip.
  */
 import * as THREE from "three";
+import { SHIP_BY_ID } from "../data/ships";
 import type { Vec3 } from "../ephemeris/vec";
 import { shipPosition, type FlightPlan } from "../planner";
 import { loadPackedMesh, tryLoadGlb } from "./loadmodel";
 
 /** Fraction of total flight time spent flipping (each side of midpoint). */
 const FLIP_HALF_FRAC = 0.012;
-/**
- * Real hull scale: the Rocinante is ~46 m long and the model is 3 units, so
- * one unit is ~15.3 m. The ship renders screen-constant at a distance but
- * never smaller than real size — dolly in close and it becomes a real
- * 46 m object filling the view.
- */
-const REAL_KM_PER_UNIT = 0.046 / 3;
 
 export type BurnPhase = "burn" | "flip" | "brake" | "off";
 
@@ -29,8 +23,15 @@ export class ShipVisual {
   private qAccel = new THREE.Quaternion();
   private qDecel = new THREE.Quaternion();
   private flicker = 0;
+  private base: string;
+  private geoCache = new Map<string, THREE.BufferGeometry>();
+  private customGlb: THREE.Object3D | null | undefined; // undefined = not probed
+  private currentHull = "";
+  /** real km per model unit for the active hull (close-up scale clamp) */
+  private realKmPerUnit = 0.046 / 3;
 
   constructor(scene: THREE.Scene, base = "") {
+    this.base = base;
     // Fallback hull until the real model loads: cylinder + nose cone, +Z.
     const hullMat = new THREE.MeshStandardMaterial({
       color: 0xcfd6df,
@@ -44,7 +45,6 @@ export class ShipVisual {
     nose.position.z = 0.8;
     this.hull.add(body, nose);
     this.group.add(this.hull);
-    this.loadRealHull(base);
 
     // Drive plume: additive cone pointing aft (-Z).
     this.plumeMat = new THREE.MeshBasicMaterial({
@@ -64,30 +64,46 @@ export class ShipVisual {
   }
 
   /**
-   * Swap the placeholder for the real hull: a drop-in models/custom-ship.glb
-   * wins; otherwise the packed SYFY Rocinante (CC-BY 3.0, see CREDITS.md).
+   * Load the hull for a ship class. Priority: drop-in models/custom-ship.glb
+   * (probed once) > the class's packed canon model > the placeholder.
    */
-  private async loadRealHull(base: string) {
-    const glb = await tryLoadGlb(`${base}models/custom-ship.glb`, 3.0);
-    let replacement: THREE.Object3D | null = glb;
-    if (!replacement) {
-      try {
-        const { geometry: geo } = await loadPackedMesh(`${base}models/rocinante.fnm`);
-        replacement = new THREE.Mesh(
-          geo,
-          new THREE.MeshStandardMaterial({
-            color: 0x5a544e, // MCRN dark hull
-            roughness: 0.42,
-            metalness: 0.62, // picks up the env panorama
-            flatShading: true,
-          })
-        );
-      } catch {
-        return; // keep the placeholder
-      }
+  async setHull(shipId: string) {
+    if (shipId === this.currentHull) return;
+    this.currentHull = shipId;
+    const cls = SHIP_BY_ID.get(shipId);
+    this.realKmPerUnit = ((cls?.lengthM ?? 46) / 1000) / 3;
+
+    if (this.customGlb === undefined) {
+      this.customGlb = await tryLoadGlb(`${this.base}models/custom-ship.glb`, 3.0);
     }
-    this.hull.clear();
-    this.hull.add(replacement);
+    if (this.customGlb) {
+      this.hull.clear();
+      this.hull.add(this.customGlb);
+      return;
+    }
+    if (!cls?.model) return; // hauler: keep the placeholder hull
+
+    try {
+      let geo = this.geoCache.get(cls.model);
+      if (!geo) {
+        geo = (await loadPackedMesh(`${this.base}models/${cls.model}`)).geometry;
+        this.geoCache.set(cls.model, geo);
+      }
+      if (this.currentHull !== shipId) return; // user switched again mid-load
+      const mesh = new THREE.Mesh(
+        geo,
+        new THREE.MeshStandardMaterial({
+          color: cls.modelColor,
+          roughness: 0.42,
+          metalness: 0.62, // picks up the env panorama
+          flatShading: true,
+        })
+      );
+      this.hull.clear();
+      this.hull.add(mesh);
+    } catch {
+      /* keep whatever hull is showing */
+    }
   }
 
   /** Current phase for HUD / sound. */
@@ -115,7 +131,7 @@ export class ShipVisual {
 
     const pos = shipPosition(plan, tSec);
     this.group.position.set(pos.x - originKm.x, pos.y - originKm.y, pos.z - originKm.z);
-    const s = Math.max(sizePx * kmPerPixelAt(pos), REAL_KM_PER_UNIT);
+    const s = Math.max(sizePx * kmPerPixelAt(pos), this.realKmPerUnit);
     this.group.scale.setScalar(s);
 
     // Orientation: +Z nose along thrust direction.
