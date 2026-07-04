@@ -22,10 +22,13 @@ No show assets are used.
   show designs referenced.
 - **Small-body models** (Vesta, Pallas, Hygiea, Juno, Phobos, Deimos,
   Phoebe) — original procedural meshes (tools/build-rocks.ts).
-- **Io / Europa / Ganymede / Callisto / Titan textures** — original
-  stylized procedural art painted at runtime (src/scene/proceduraltex.ts);
-  not derived from spacecraft imagery.
-- **Earth clouds** — Solar System Scope texture pack, CC BY 4.0.
+- **Io, Europa, Ganymede, Callisto textures** — USGS Astrogeology global
+  mosaics (Galileo SSI / Voyager; public domain, NASA/JPL/USGS), downsampled
+  to 2k from planetarymaps.usgs.gov. Europa and Callisto are grayscale
+  mosaics tinted in-app.
+- **Titan texture** — original procedural haze art (the real surface is
+  invisible under the atmosphere; the haze look is deliberate).
+- **Earth clouds & night lights** — Solar System Scope texture pack, CC BY 4.0.
 - **433 Eros plate model** (89,398 plates) — NEAR Shoemaker MSI team, via the
   PDS Small Bodies Node, dataset NEAR-A-5-COLLECTED-MODELS-V1.0.
   https://sbnarchive.psi.edu/pds3/near/NEAR_A_5_COLLECTED_MODELS_V1_0/

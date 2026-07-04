@@ -3,13 +3,14 @@
  * crater dents, per-body elongation, and baked vertex colors (albedo
  * variation + slope darkening). Original geometry — no external assets.
  *
- * Output: public/models/<id>.fnm, format FNM2:
- *   0  u8[4]  magic "FNM2"
+ * Output: public/models/<id>.fnm, format FNM3:
+ *   0  u8[4]  magic "FNM3"
  *   4  u32    vertex count V
  *   8  u32    triangle count T
  *   12 f32[V*3] positions (unit ~ mean radius 1.0; scaled in-app)
  *   .. u32[T*3] indices
  *   .. u8[V*3]  vertex RGB
+ *   .. f32[V*2] UVs (equirect; regolith detail map tiles over these)
  *
  * Usage: tsx tools/build-rocks.ts
  */
@@ -120,6 +121,7 @@ function buildRock(spec: RockSpec) {
   const rows = SEGS / 2 + 1;
   const verts: number[] = [];
   const colors: number[] = [];
+  const uvs: number[] = [];
   const radiusAt = (dx: number, dy: number, dz: number) => {
     let radius = 1;
     // fbm: 4 octaves
@@ -167,6 +169,7 @@ function buildRock(spec: RockSpec) {
         Math.min(255, Math.round(spec.tint[1] * cl)),
         Math.min(255, Math.round(spec.tint[2] * cl))
       );
+      uvs.push(ix / SEGS, 1 - iy / (rows - 1));
     }
   }
 
@@ -182,17 +185,20 @@ function buildRock(spec: RockSpec) {
 
   const V = verts.length / 3;
   const T = idx.length / 3;
-  const buf = new ArrayBuffer(12 + V * 12 + T * 12 + V * 3);
+  // u8 color block padded to 4-byte alignment for the trailing f32 UV block
+  const colorBytes = (V * 3 + 3) & ~3;
+  const buf = new ArrayBuffer(12 + V * 12 + T * 12 + colorBytes + V * 8);
   const view = new DataView(buf);
   view.setUint8(0, 0x46);
   view.setUint8(1, 0x4e);
   view.setUint8(2, 0x4d);
-  view.setUint8(3, 0x32); // FNM2
+  view.setUint8(3, 0x33); // FNM3
   view.setUint32(4, V, true);
   view.setUint32(8, T, true);
   new Float32Array(buf, 12, V * 3).set(verts);
   new Uint32Array(buf, 12 + V * 12, T * 3).set(idx);
   new Uint8Array(buf, 12 + V * 12 + T * 12, V * 3).set(colors);
+  new Float32Array(buf, 12 + V * 12 + T * 12 + colorBytes, V * 2).set(uvs);
   writeFileSync(join(OUT_DIR, `${spec.id}.fnm`), Buffer.from(buf));
   console.log(`${spec.id}: ${V} verts, ${T} tris, ${(buf.byteLength / 1024).toFixed(0)} KB`);
 }

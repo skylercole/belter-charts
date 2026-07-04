@@ -24,8 +24,8 @@ export async function loadPackedMesh(url: string): Promise<PackedMesh> {
     view.getUint8(2),
     view.getUint8(3)
   );
-  if (magic !== "FNM1" && magic !== "FNM2") throw new Error(`bad mesh magic in ${url}`);
-  const v2 = magic === "FNM2";
+  const version = { FNM1: 1, FNM2: 2, FNM3: 3 }[magic];
+  if (!version) throw new Error(`bad mesh magic in ${url}`);
   const v = view.getUint32(4, true);
   const t = view.getUint32(8, true);
   const positions = new Float32Array(buf, 12, v * 3);
@@ -33,12 +33,17 @@ export async function loadPackedMesh(url: string): Promise<PackedMesh> {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geo.setIndex(new THREE.BufferAttribute(indices, 1));
-  if (v2) {
+  if (version >= 2) {
     const rgb = new Uint8Array(buf, 12 + v * 12 + t * 12, v * 3);
     geo.setAttribute("color", new THREE.BufferAttribute(rgb, 3, true));
   }
+  if (version >= 3) {
+    const colorBytes = (v * 3 + 3) & ~3;
+    const uv = new Float32Array(buf, 12 + v * 12 + t * 12 + colorBytes, v * 2);
+    geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  }
   geo.computeVertexNormals();
-  return { geometry: geo, unitScale: v2, hasColors: v2 };
+  return { geometry: geo, unitScale: version >= 2, hasColors: version >= 2 };
 }
 
 /** Back-compat helper for FNM1 call sites. */

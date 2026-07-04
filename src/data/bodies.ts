@@ -23,6 +23,8 @@ export interface BodyDef {
   radiusKm: number;
   /** Texture file under /textures, if any. */
   texture?: string;
+  /** Multiplied under the texture (tints grayscale mosaics). */
+  mapTint?: string;
   /** Polar-to-equatorial flattening applied to the sphere mesh (z scale). */
   polarScale?: number;
   /** Focus framing distance, km (default 6 radii). Set to frame moon systems. */
@@ -60,10 +62,10 @@ export const BODIES: BodyDef[] = [
   { id: "phobos", name: "Phobos", kind: "moon", color: "#9a8f85", periodDays: 0.319, radiusKm: 11.3, spinHours: 7.66, model: "phobos.fnm", moon: { parent: "mars", kepler: { aKm: 9376, periodDays: 0.3189, phaseDeg: 0 } } },
   { id: "deimos", name: "Deimos", kind: "moon", color: "#a89d92", periodDays: 1.263, radiusKm: 6.2, spinHours: 30.3, model: "deimos.fnm", moon: { parent: "mars", kepler: { aKm: 23_463, periodDays: 1.2624, phaseDeg: 120 } } },
   { id: "jupiter", name: "Jupiter", kind: "planet", color: "#c9a06c", periodDays: 4333, radiusKm: 69_911, texture: "jupiter.jpg", polarScale: 0.935, spinHours: 9.93, focusDistKm: 2_450_000 },
-  { id: "io", name: "Io", kind: "moon", color: "#d8c05a", periodDays: 1.77, radiusKm: 1821.6, spinHours: 42.5, moon: { parent: "jupiter", engine: "io" } },
-  { id: "europa", name: "Europa", kind: "moon", color: "#cbb89a", periodDays: 3.55, radiusKm: 1560.8, spinHours: 85.2, moon: { parent: "jupiter", engine: "europa" } },
-  { id: "ganymede", name: "Ganymede", kind: "moon", color: "#9d9585", periodDays: 7.15, radiusKm: 2634.1, spinHours: 171.7, moon: { parent: "jupiter", engine: "ganymede" } },
-  { id: "callisto", name: "Callisto", kind: "moon", color: "#7d7568", periodDays: 16.69, radiusKm: 2410.3, spinHours: 400.5, moon: { parent: "jupiter", engine: "callisto" } },
+  { id: "io", name: "Io", kind: "moon", color: "#d8c05a", periodDays: 1.77, radiusKm: 1821.6, texture: "io.jpg", spinHours: 42.5, moon: { parent: "jupiter", engine: "io" } },
+  { id: "europa", name: "Europa", kind: "moon", color: "#cbb89a", periodDays: 3.55, radiusKm: 1560.8, texture: "europa.jpg", mapTint: "#e8dcc4", spinHours: 85.2, moon: { parent: "jupiter", engine: "europa" } },
+  { id: "ganymede", name: "Ganymede", kind: "moon", color: "#9d9585", periodDays: 7.15, radiusKm: 2634.1, texture: "ganymede.jpg", spinHours: 171.7, moon: { parent: "jupiter", engine: "ganymede" } },
+  { id: "callisto", name: "Callisto", kind: "moon", color: "#7d7568", periodDays: 16.69, radiusKm: 2410.3, texture: "callisto.jpg", mapTint: "#c2ab90", spinHours: 400.5, moon: { parent: "jupiter", engine: "callisto" } },
   {
     id: "saturn", name: "Saturn", kind: "planet", color: "#d8bd8a", periodDays: 10_759, radiusKm: 58_232,
     texture: "saturn.jpg", polarScale: 0.902, spinHours: 10.7, focusDistKm: 1_650_000,

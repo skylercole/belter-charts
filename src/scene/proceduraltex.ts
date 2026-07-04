@@ -191,3 +191,47 @@ export function proceduralTexture(id: string): THREE.Texture | null {
 export function hasProceduralTexture(id: string): boolean {
   return id in PAINTERS;
 }
+
+let regolith: THREE.Texture | null = null;
+/**
+ * Tiling gray regolith speckle, multiplied under rock vertex colors for
+ * close-up surface detail.
+ */
+export function regolithTexture(): THREE.Texture {
+  if (regolith) return regolith;
+  const S = 512;
+  const c = document.createElement("canvas");
+  c.width = c.height = S;
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#b9b9b9";
+  ctx.fillRect(0, 0, S, S);
+  const r = rng(1337);
+  for (let i = 0; i < 14000; i++) {
+    const x = r() * S;
+    const y = r() * S;
+    const rad = 0.5 + r() * 1.8;
+    const l = 120 + r() * 150;
+    ctx.fillStyle = `rgba(${l},${l},${l},${0.25 + r() * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // a few larger soft patches
+  for (let i = 0; i < 120; i++) {
+    const x = r() * S;
+    const y = r() * S;
+    const rad = 6 + r() * 22;
+    const l = 150 + r() * 60;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, `rgba(${l},${l},${l},0.18)`);
+    g.addColorStop(1, "transparent");
+    ctx.fillStyle = g;
+    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+  regolith = new THREE.CanvasTexture(c);
+  regolith.wrapS = regolith.wrapT = THREE.RepeatWrapping;
+  regolith.repeat.set(8, 4);
+  regolith.colorSpace = THREE.SRGBColorSpace;
+  regolith.anisotropy = 4;
+  return regolith;
+}

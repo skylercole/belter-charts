@@ -414,6 +414,14 @@ export class Scene3D {
         if (v.def.model) v.mesh.rotation.z = spin;
         else v.mesh.rotation.y = spin;
       }
+      // Earth's day/night shader tracks the real sun direction
+      if (v.mesh) {
+        const mat = v.mesh.material as THREE.ShaderMaterial;
+        if (mat.userData?.isDayNight) {
+          const r = Math.hypot(pos.x, pos.y, pos.z) || 1;
+          mat.uniforms.uSunDir.value.set(-pos.x / r, -pos.y / r, -pos.z / r);
+        }
+      }
     }
 
     this.updateTravelTimes(s);

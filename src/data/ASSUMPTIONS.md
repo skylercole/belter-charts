@@ -36,11 +36,13 @@ Running log of every modeling assumption, per Plan.md. Update as decisions land.
   right but not Horizons-accurate.
 - Moons are hidden (dot + label) until they visually separate from their
   parent by >26 px, so the system view stays legible.
-- Galilean/Titan surface textures are stylized original art (no clean
-  redistribution license found for real mosaics); Vesta, Pallas, Hygiea,
-  Juno, Phobos, Deimos and Phoebe are procedural rocks — shapes evoke the
-  real bodies (Vesta's south-pole basin, Phobos's Stickney) but are not
-  spacecraft-derived.
+- Galilean textures are real USGS global mosaics (Europa/Callisto grayscale,
+  tinted in-app). Titan deliberately keeps procedural haze art. Vesta,
+  Pallas, Hygiea, Juno, Phobos, Deimos and Phoebe are procedural rocks —
+  shapes evoke the real bodies (Vesta's south-pole basin, Phobos's
+  Stickney) but are not spacecraft-derived.
+- Earth renders a day/night shader against the true sun direction; city
+  lights are the SSS night map.
 
 ## Fictional stations (Phase 0 approximation)
 - Tycho Station: Ceres' orbit, leading by 60° (IanH wargame convention).

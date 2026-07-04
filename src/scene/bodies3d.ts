@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { BODIES, type BodyDef } from "../data/bodies";
 import { loadPackedMesh, tryLoadGlb } from "./loadmodel";
-import { proceduralTexture } from "./proceduraltex";
+import { proceduralTexture, regolithTexture } from "./proceduraltex";
 
 /** Bodies that get a fresnel atmosphere rim (color, strength). */
 const ATMOSPHERES: Record<string, { color: number; strength: number }> = {
@@ -132,11 +132,57 @@ function buildStation(def: BodyDef): THREE.Group {
   return g;
 }
 
+/**
+ * Earth: day/night shader — daymap lit by the sun direction, city lights
+ * emerging across the terminator. uSunDir is world-space, updated per frame
+ * by the scene (flagged via userData.isDayNight).
+ */
+function earthMesh(def: BodyDef, texLoader: THREE.TextureLoader, base: string): THREE.Mesh {
+  const day = loadTex(texLoader, base, "earth.jpg");
+  const night = loadTex(texLoader, base, "earth_night.jpg");
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      tDay: { value: day },
+      tNight: { value: night },
+      uSunDir: { value: new THREE.Vector3(1, 0, 0) },
+    },
+    vertexShader: `
+      varying vec3 vWorldNormal;
+      varying vec2 vUv;
+      void main() {
+        vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D tDay;
+      uniform sampler2D tNight;
+      uniform vec3 uSunDir;
+      varying vec3 vWorldNormal;
+      varying vec2 vUv;
+      void main() {
+        float sunLit = dot(normalize(vWorldNormal), uSunDir);
+        float dayF = smoothstep(-0.08, 0.22, sunLit);
+        vec3 day = texture2D(tDay, vUv).rgb * (0.08 + 1.25 * max(sunLit, 0.0));
+        vec3 night = texture2D(tNight, vUv).rgb * 1.15;
+        gl_FragColor = vec4(mix(night, day, dayF), 1.0);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  mat.userData.isDayNight = true;
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(def.radiusKm, 64, 32), mat);
+  mesh.rotation.x = Math.PI / 2;
+  return mesh;
+}
+
 function buildMesh(
   def: BodyDef,
   texLoader: THREE.TextureLoader,
   base: string
 ): THREE.Mesh | null {
+  if (def.id === "earth") return earthMesh(def, texLoader, base);
   if (def.kind === "construct") {
     // the Ring: emissive gate torus standing on the ecliptic, with a faint
     // glow disc across the aperture
@@ -176,7 +222,7 @@ function buildMesh(
   } else {
     mat = new THREE.MeshStandardMaterial({
       map,
-      color: map ? 0xffffff : def.color,
+      color: map ? (def.mapTint ?? 0xffffff) : def.color,
       roughness: 1,
       metalness: 0,
     });
@@ -284,6 +330,9 @@ export function buildBodies(
           geometry,
           new THREE.MeshStandardMaterial({
             color: hasColors ? 0xffffff : 0x9a8878,
+            // FNM3 rocks carry UVs: tile the regolith speckle under the
+            // vertex colors for close-up surface detail
+            map: geometry.getAttribute("uv") ? regolithTexture() : null,
             roughness: 1,
             flatShading: !hasColors,
             side: hasColors ? THREE.FrontSide : THREE.DoubleSide,
@@ -305,7 +354,7 @@ export function buildBodies(
         new THREE.MeshStandardMaterial({
           map: loadTex(texLoader, base, "earth_clouds.jpg"),
           transparent: true,
-          opacity: 0.85,
+          opacity: 0.55,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
           roughness: 1,
