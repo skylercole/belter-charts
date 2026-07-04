@@ -2,7 +2,15 @@
 import { ROUTE_BODIES } from "../data/bodies";
 import { burnWarning, SHIP_BY_ID, SHIPS } from "../data/ships";
 import type { Ephemeris } from "../ephemeris";
-import { lightLag, planFlight } from "../planner";
+import {
+  brachistochrone,
+  CANON_ACCEL_DIVISOR,
+  effectiveAccelG,
+  G0,
+  lightLag,
+  planFlight,
+} from "../planner";
+import { buildShareUrl } from "./share";
 import { epsteinPlan, EPSTEIN_BURN_SEC } from "../scene/epstein";
 import {
   fmtAu,
@@ -41,12 +49,20 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     <div class="g-row" id="g-row"></div>
     <p id="burn-warning" class="warning"></p>
 
+    <div class="honesty-row" id="honesty-row" title="The books' stated accelerations give trips ~10x faster than the books narrate. Pick your truth.">
+      <button data-mode="honest" class="h-btn">honest physics</button>
+      <button data-mode="canon" class="h-btn">canon feel</button>
+    </div>
+
     <button id="plan-btn" class="primary">Plan flight</button>
 
     <div id="lag" class="lag"></div>
     <button id="beam-btn" class="ghost" title="watch a comm pulse cross at lightspeed">◇ tightbeam</button>
     <div id="result" class="result"></div>
-    <button id="ride-btn" class="primary ride hidden">▶ Ride the burn</button>
+    <div class="result-actions">
+      <button id="ride-btn" class="primary ride hidden">▶ Ride the burn</button>
+      <button id="share-btn" class="ghost hidden" title="copy a link to this exact plan">⧉ share plan</button>
+    </div>
 
     <div class="scenario-row">
       <button id="epstein-btn" class="ghost" title="story mode: the first Epstein burn">☄ Epstein's last flight</button>
@@ -73,6 +89,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
   const gRow = root.querySelector<HTMLDivElement>("#g-row")!;
   const warning = root.querySelector<HTMLParagraphElement>("#burn-warning")!;
   const planBtn = root.querySelector<HTMLButtonElement>("#plan-btn")!;
+  const shareBtn = root.querySelector<HTMLButtonElement>("#share-btn")!;
   const beamBtn = root.querySelector<HTMLButtonElement>("#beam-btn")!;
   const rideBtn = root.querySelector<HTMLButtonElement>("#ride-btn")!;
   const lagEl = root.querySelector<HTMLDivElement>("#lag")!;
@@ -96,6 +113,13 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     store.getState().setAccel(Number(btn.dataset.g));
   });
 
+  const honestyRow = root.querySelector<HTMLDivElement>("#honesty-row")!;
+  honestyRow.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".h-btn");
+    if (!btn) return;
+    store.getState().setHonesty(btn.dataset.mode as "honest" | "canon");
+  });
+
   planBtn.addEventListener("click", () => {
     const s = store.getState();
     if (s.originId === s.destId) return;
@@ -109,7 +133,13 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
       }
     }
     try {
-      const plan = planFlight(eph, s.originId, s.destId, new Date(s.timeMs), s.accelG);
+      const plan = planFlight(
+        eph,
+        s.originId,
+        s.destId,
+        new Date(s.timeMs),
+        effectiveAccelG(s.accelG, s.honesty)
+      );
       s.setPlan(plan);
       resultEl.classList.remove("error");
     } catch (e) {
@@ -154,6 +184,25 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     s.setRide(true);
   });
 
+  shareBtn.addEventListener("click", async () => {
+    const url = buildShareUrl(store.getState());
+    try {
+      await navigator.clipboard.writeText(url);
+      shareBtn.textContent = "✓ copied";
+    } catch {
+      // clipboard blocked: show the URL for manual copy
+      prompt("Copy this link:", url);
+    }
+    setTimeout(() => (shareBtn.textContent = "⧉ share plan"), 1800);
+  });
+
+  function renderHonesty() {
+    const mode = store.getState().honesty;
+    for (const b of honestyRow.querySelectorAll<HTMLButtonElement>(".h-btn")) {
+      b.classList.toggle("active", b.dataset.mode === mode);
+    }
+  }
+
   function renderShip() {
     const s = store.getState();
     const hull = SHIP_BY_ID.get(s.shipId)!;
@@ -184,28 +233,41 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
   }
 
   function renderResult() {
-    const { plan } = store.getState();
+    const s = store.getState();
+    const { plan } = s;
     rideBtn.classList.toggle("hidden", !plan);
+    shareBtn.classList.toggle("hidden", !plan);
     if (!plan) {
       resultEl.innerHTML = "";
       return;
     }
+    // Both truths, side by side (Plan.md 5.5): the same chord flown at the
+    // stated g and at canon-feel g/10. Times scale by sqrt(10).
+    const honestT = brachistochrone(plan.distanceKm, s.accelG * G0).t;
+    const canonT = brachistochrone(
+      plan.distanceKm,
+      (s.accelG / CANON_ACCEL_DIVISOR) * G0
+    ).t;
     resultEl.innerHTML = `
       <div class="row"><span>departure</span><b>${fmtDate(plan.depart.getTime())}</b></div>
-      <div class="row"><span>travel time</span><b>${fmtDuration(plan.travelTimeSec)}</b></div>
+      <div class="row honesty-compare">
+        <span class="${s.honesty === "honest" ? "active" : ""}">honest: <b>${fmtDuration(honestT)}</b></span>
+        <span class="${s.honesty === "canon" ? "active" : ""}">canon: <b>${fmtDuration(canonT)}</b></span>
+      </div>
       <div class="row"><span>flip at</span><b>${fmtDateTime(
         plan.depart.getTime() + plan.flipTimeSec * 1000
       )}</b></div>
       <div class="row"><span>arrival</span><b>${fmtDateTime(plan.arrive.getTime())}</b></div>
       <div class="row"><span>distance</span><b>${fmtAu(plan.distanceKm)}</b></div>
       <div class="row"><span>peak velocity</span><b>${fmtVelocity(plan.vPeakKmS)}</b></div>
-      <div class="row"><span>burn</span><b>${plan.accelG} g constant</b></div>
+      <div class="row"><span>burn</span><b>${s.accelG} g ${s.honesty === "canon" ? "(canon feel)" : "stated"}</b></div>
     `;
   }
 
   let lastLagRender = 0;
   store.subscribe((s, prev) => {
     if (s.accelG !== prev.accelG || s.shipId !== prev.shipId) renderShip();
+    if (s.honesty !== prev.honesty) renderHonesty();
     if (s.plan !== prev.plan) renderResult();
     if (
       s.originId !== prev.originId ||
@@ -218,6 +280,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
   });
 
   renderShip();
+  renderHonesty();
   renderLag();
   renderResult();
 }

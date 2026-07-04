@@ -2,8 +2,11 @@ import "./style.css";
 import { loadEphemeris } from "./ephemeris";
 import { Map2D } from "./map2d";
 import { Scene3D } from "./scene";
+import { effectiveAccelG, planFlight } from "./planner";
 import { TimelineEphemeris } from "./timeline";
+import { mountAbout } from "./ui/about";
 import { mountEventsUi } from "./ui/eventsui";
+import { parseShareUrl } from "./ui/share";
 import { mountNavRail } from "./ui/navrail";
 import { mountPanel } from "./ui/panel";
 import { mountTimebar } from "./ui/timebar";
@@ -41,8 +44,39 @@ async function boot() {
   const eph = new TimelineEphemeris(await loadEphemeris(`${base}ephem`));
   document.getElementById("loading")!.remove();
 
+  // Shared plan in the URL: restore state before the panels mount.
+  const shared = parseShareUrl(location.search);
+  if (shared) {
+    const s = store.getState();
+    s.setShip(shared.shipId);
+    s.setOrigin(shared.originId);
+    s.setDest(shared.destId);
+    s.setAccel(shared.accelG);
+    s.setHonesty(shared.honesty);
+    s.setTime(shared.timeMs);
+  }
+
   mountPanel(document.getElementById("panel")!, eph);
   mountTimebar(document.getElementById("timebar")!);
+  mountAbout(document.getElementById("app")!, document.getElementById("panel")!);
+
+  if (shared) {
+    // re-plan the shared route
+    try {
+      const s = store.getState();
+      s.setPlan(
+        planFlight(
+          eph,
+          s.originId,
+          s.destId,
+          new Date(s.timeMs),
+          effectiveAccelG(s.accelG, s.honesty)
+        )
+      );
+    } catch {
+      /* out-of-era share links just land on the date */
+    }
+  }
 
   const use2d = new URLSearchParams(location.search).get("view") === "2d";
   const app = document.getElementById("app")!;

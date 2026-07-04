@@ -13,6 +13,21 @@ import { distance } from "../ephemeris/vec";
 export const G0 = 9.80665e-3; // km/s^2 per g
 export const C_KM_S = 299_792.458;
 
+/**
+ * Physics honesty toggle (Plan.md 5.5). Fan analysis (Expanse wiki "Travel
+ * Time") finds the books' STATED drive accelerations produce trips ~10x
+ * faster than the travel times the books actually narrate. "Honest physics"
+ * uses the stated g; "canon feel" divides acceleration by 10 so trips take
+ * as long as they do on the page. Times scale by sqrt(10) ~ 3.16x.
+ */
+export const CANON_ACCEL_DIVISOR = 10;
+
+export type HonestyMode = "honest" | "canon";
+
+export function effectiveAccelG(statedG: number, mode: HonestyMode): number {
+  return mode === "canon" ? statedG / CANON_ACCEL_DIVISOR : statedG;
+}
+
 export interface Brachistochrone {
   /** total travel time, seconds */
   t: number;

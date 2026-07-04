@@ -264,6 +264,100 @@ button.primary.ride:hover {
 /* ---- scenario row ---- */
 .scenario-row { margin-top: 10px; }
 
+/* ---- honesty toggle ---- */
+.honesty-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin: 0 0 10px;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.h-btn {
+  background: #0d1422;
+  color: #6d7c92;
+  border: none;
+  padding: 5px 4px;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.h-btn.active {
+  background: #274668;
+  color: #e8f0fa;
+}
+.result .honesty-compare {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.result .honesty-compare span {
+  color: #55637a;
+  font-size: 11px;
+}
+.result .honesty-compare span.active {
+  color: #ffd27d;
+}
+.result .honesty-compare span.active b { color: #ffd27d; }
+.result-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.result-actions .ride { flex: 1; }
+
+/* ---- about modal ---- */
+#about-btn { width: 100%; margin-top: 8px; }
+#about-modal {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 4, 7, 0.72);
+  display: grid;
+  place-items: center;
+  z-index: 9;
+}
+.about-box {
+  position: relative;
+  width: min(560px, 92vw);
+  max-height: 82vh;
+  overflow-y: auto;
+  background: #0a0e18;
+  border: 1px solid #1d2a3f;
+  border-radius: 10px;
+  padding: 22px 26px;
+}
+.about-box h2 { color: #e8f0fa; margin-bottom: 10px; }
+.about-box p { color: #a9b6c8; font-size: 12px; line-height: 1.65; margin-bottom: 10px; }
+.about-disclaimer { color: #d8bd8a !important; }
+.about-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #8899aa;
+  font: inherit;
+  cursor: pointer;
+}
+.about-credits {
+  border-top: 1px solid #16213480;
+  margin-top: 12px;
+  padding-top: 10px;
+}
+.about-credits h3, .about-credits h4 {
+  color: #cdd6e4;
+  font-size: 12px;
+  margin: 10px 0 4px;
+}
+.about-credits p, .about-credits li {
+  color: #6d7c92;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.about-credits ul { margin: 4px 0 8px 16px; }
+.about-credits a { color: #8fb8d8; }
+
 /* ---- g-force vignette ---- */
 #g-vignette {
   position: absolute;

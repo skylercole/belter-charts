@@ -12,6 +12,8 @@ export interface AppState {
   destId: string;
   shipId: string;
   accelG: number;
+  /** physics honesty toggle: stated g vs canon-feel (g/10) */
+  honesty: "honest" | "canon";
   plan: FlightPlan | null;
   /** ride-the-burn chase-cam mode; plan is guaranteed non-null while true */
   ride: boolean;
@@ -31,6 +33,7 @@ export interface AppState {
   setDest(id: string): void;
   setShip(id: string): void;
   setAccel(g: number): void;
+  setHonesty(m: "honest" | "canon"): void;
   setPlan(plan: FlightPlan | null): void;
   setRide(r: boolean): void;
   setCockpit(c: boolean): void;
@@ -54,6 +57,7 @@ export const store = createStore<AppState>()((set) => ({
   destId: "ceres",
   shipId: "hauler",
   accelG: 0.3,
+  honesty: "honest",
   plan: null,
   ride: false,
   cockpit: false,
@@ -70,6 +74,7 @@ export const store = createStore<AppState>()((set) => ({
   setDest: (id) => set({ destId: id, plan: null, ride: false, beamStartMs: null }),
   setShip: (id) => set({ shipId: id, plan: null, ride: false }),
   setAccel: (g) => set({ accelG: g, plan: null, ride: false }),
+  setHonesty: (m) => set({ honesty: m, plan: null, ride: false }),
   setPlan: (plan) => set({ plan, ride: false, scenario: null }),
   setRide: (r) => set(r ? { ride: r } : { ride: r, scenario: null }),
   setCockpit: (c) => set({ cockpit: c }),

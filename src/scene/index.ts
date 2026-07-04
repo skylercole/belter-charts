@@ -16,7 +16,7 @@ import { sampleOrbitPath, type OrbitPath } from "../ephemeris/orbitpath";
 import { dateToJd } from "../ephemeris/time";
 import type { Vec3 } from "../ephemeris/vec";
 
-import { planFlight, shipPosition } from "../planner";
+import { effectiveAccelG, planFlight, shipPosition } from "../planner";
 import { fmtDuration } from "../ui/format";
 import { store, type AppState } from "../ui/store";
 import { AttractMode } from "./attract";
@@ -260,8 +260,11 @@ export class Scene3D {
   }
 
   /** Time-to-everywhere: refresh label sub-lines when inputs change. */
-  private updateTravelTimes(s: Pick<AppState, "originId" | "accelG" | "timeMs">) {
-    const key = `${s.originId}|${s.accelG}|${Math.floor(s.timeMs / TT_BUCKET_MS)}`;
+  private updateTravelTimes(
+    s: Pick<AppState, "originId" | "accelG" | "timeMs" | "honesty">
+  ) {
+    const g = effectiveAccelG(s.accelG, s.honesty);
+    const key = `${s.originId}|${g}|${Math.floor(s.timeMs / TT_BUCKET_MS)}`;
     if (key === this.ttKey) return;
     this.ttKey = key;
     const date = new Date(s.timeMs);
@@ -275,7 +278,7 @@ export class Scene3D {
         continue;
       }
       try {
-        const plan = planFlight(this.eph, s.originId, v.def.id, date, s.accelG);
+        const plan = planFlight(this.eph, s.originId, v.def.id, date, g);
         v.timeEl.textContent = fmtDuration(plan.travelTimeSec);
       } catch {
         v.timeEl.textContent = "";

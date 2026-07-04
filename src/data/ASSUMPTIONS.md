@@ -114,6 +114,13 @@ Running log of every modeling assumption, per Plan.md. Update as decisions land.
   to 45% while music plays; a lowpass pulls the music down during the
   zero-thrust flip.
 
+## Physics honesty toggle
+- "Honest physics" flies the stated g. "Canon feel" divides acceleration by
+  10, following fan analysis (Expanse wiki, "Travel Time") that the books'
+  stated accelerations produce trips ~10x faster than the books narrate.
+  Times scale by sqrt(10) ≈ 3.16x. The divisor is a single constant
+  (CANON_ACCEL_DIVISOR); argue about it in the comments.
+
 ## Planner physics
 - Brachistochrone, constant thrust, flip at midpoint: t = 2*sqrt(d/a).
 - Straight-chord flight; gravity and origin/destination orbital velocities
