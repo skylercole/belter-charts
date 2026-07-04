@@ -59,6 +59,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
       <br /><br />
       Fly: click or double-click a body · <b>WASD</b>+<b>R/F</b> free flight
       (shift = boost, speed scales with altitude) · drag aims ·
+      <b>right-drag</b> pans ·
       <b>arrows</b> orbit &amp; zoom · <b>Q/E</b> pitch · <b>H</b> system view ·
       <b>[</b> <b>]</b> cycle · <b>1–8</b> planets, <b>9</b> Ceres, <b>0</b> Sol ·
       <b>G</b> frame route · <b>space</b> play.

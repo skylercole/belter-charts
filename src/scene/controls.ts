@@ -51,7 +51,10 @@ export class FocusControls {
   private freePos: Vec3 = { x: 0, y: 0, z: 0 };
 
   private dragging = false;
+  /** true while the active drag pans (right/middle button) */
+  private panDrag = false;
   private last = { x: 0, y: 0 };
+  private viewportH = 900;
   private keys = new Set<string>();
   /** true while a ride locks the camera to the ship */
   rideLock = false;
@@ -60,9 +63,13 @@ export class FocusControls {
     this.dist = initialDistKm;
     this.distTarget = initialDistKm;
 
+    dom.addEventListener("contextmenu", (e) => e.preventDefault());
     dom.addEventListener("pointerdown", (e) => {
       this.dragging = true;
+      // right (2) or middle (1) button pans, CAD-style
+      this.panDrag = e.button === 1 || e.button === 2;
       this.last = { x: e.clientX, y: e.clientY };
+      this.viewportH = dom.clientHeight || 900;
       dom.setPointerCapture(e.pointerId);
     });
     dom.addEventListener("pointermove", (e) => {
@@ -70,7 +77,9 @@ export class FocusControls {
       const dx = e.clientX - this.last.x;
       const dy = e.clientY - this.last.y;
       this.last = { x: e.clientX, y: e.clientY };
-      if (this.mode === "fly") {
+      if (this.panDrag) {
+        if (!this.rideLock) this.pan(dx, dy);
+      } else if (this.mode === "fly") {
         // aim the nose: drag right looks right
         this.yawTarget -= dx * 0.0028;
         this.pitchTarget = Math.min(Math.max(this.pitchTarget - dy * 0.0028, -1.5), 1.5);
@@ -178,6 +187,40 @@ export class FocusControls {
     const alt = Math.max(r - this.focusRadius(), 0.5);
     const boost = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight") ? 4 : 1;
     return Math.min(Math.max(alt * FLY_RATE, FLY_MIN_KMS), FLY_MAX_KMS) * boost;
+  }
+
+  /**
+   * Screen-space pan: grab the world and drag it, 1:1 with the cursor at the
+   * focus distance. Enters fly mode from the rail (panning is a lateral
+   * offset, which the rail cannot represent).
+   */
+  private pan(dxPx: number, dyPx: number) {
+    if (this.mode === "orbit") {
+      this.mode = "fly";
+      this.freePos = this.cameraOffsetOrbit();
+      const r = Math.hypot(this.freePos.x, this.freePos.y, this.freePos.z) || 1;
+      this.yaw = this.yawTarget = Math.atan2(-this.freePos.y, -this.freePos.x);
+      this.pitch = this.pitchTarget = Math.asin(
+        Math.min(Math.max(-this.freePos.z / r, -1), 1)
+      );
+    }
+    const r = Math.hypot(this.freePos.x, this.freePos.y, this.freePos.z) || 1;
+    const kmPerPx = (2 * r * Math.tan((50 * Math.PI) / 360)) / this.viewportH;
+
+    const fwd = this.lookDir();
+    const rx = fwd.y;
+    const ry = -fwd.x;
+    const rl = Math.hypot(rx, ry) || 1;
+    const right = { x: rx / rl, y: ry / rl, z: 0 };
+    // view-plane up = right x fwd
+    const up = {
+      x: right.y * fwd.z - right.z * fwd.y,
+      y: right.z * fwd.x - right.x * fwd.z,
+      z: right.x * fwd.y - right.y * fwd.x,
+    };
+    // drag right -> world follows cursor -> camera moves left
+    this.translate(right, -dxPx * kmPerPx);
+    this.translate(up, dyPx * kmPerPx);
   }
 
   private translate(dir: Vec3, amount: number) {
