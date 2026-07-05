@@ -1,7 +1,9 @@
 # Belter Charts
 
 Unofficial navigator for The Expanse's solar system. Real ephemerides, canon
-locations, Epstein flight planner. Browser-only, no backend, no account.
+locations, Epstein flight planner. Browser-only and no account.
+
+Test at https://belter-charts.pages.dev/.
 
 **Status: Phase 3 complete — launch-ready** — math core, 3D scene, ride
 mode, canon timeline, honesty toggle, shareable plans, about panel (see
