@@ -4,7 +4,7 @@
  */
 import credits from "../../CREDITS.md?raw";
 
-const GITHUB_URL = ""; // fill in when the repo goes public
+const GITHUB_URL = "https://github.com/skylercole/belter-charts";
 
 /** minimal markdown: #/## headers, - lists, **bold**, bare links */
 function mdToHtml(md: string): string {

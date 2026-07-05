@@ -1,4 +1,5 @@
 import "./style.css";
+import { track } from "./analytics";
 import { loadEphemeris } from "./ephemeris";
 import { Map2D } from "./map2d";
 import { Scene3D } from "./scene";
@@ -61,6 +62,7 @@ async function boot() {
   mountAbout(document.getElementById("app")!, document.getElementById("about-btn")!);
 
   if (shared) {
+    track("shared-link-opened");
     // re-plan the shared route
     try {
       const s = store.getState();

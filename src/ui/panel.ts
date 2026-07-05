@@ -10,6 +10,7 @@ import {
   lightLag,
   planFlight,
 } from "../planner";
+import { track } from "../analytics";
 import { buildShareUrl } from "./share";
 import { epsteinPlan, EPSTEIN_BURN_SEC } from "../scene/epstein";
 import {
@@ -151,6 +152,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
       );
       s.setPlan(plan);
       resultEl.classList.remove("error");
+      track("flight-planned");
     } catch (e) {
       // Arrival past the packed ephemeris window (belt data ends 2365-01-01).
       s.setPlan(null);
@@ -179,6 +181,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     s.setSpeed(days / wallSec);
     s.setPlaying(true);
     s.setRide(true);
+    track("ride-started");
   });
 
   root.querySelector<HTMLButtonElement>("#epstein-btn")!.addEventListener("click", () => {
@@ -191,9 +194,11 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     s.setSpeed(EPSTEIN_BURN_SEC / 86_400 / 40);
     s.setPlaying(true);
     s.setRide(true);
+    track("epstein-flight");
   });
 
   shareBtn.addEventListener("click", async () => {
+    track("plan-shared");
     const url = buildShareUrl(store.getState());
     try {
       await navigator.clipboard.writeText(url);

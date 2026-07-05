@@ -10,6 +10,7 @@
  */
 import * as THREE from "three";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
+import { track } from "../analytics";
 import { BODIES, BODY_BY_ID } from "../data/bodies";
 import type { Ephemeris } from "../ephemeris";
 import { sampleOrbitPath, type OrbitPath } from "../ephemeris/orbitpath";
@@ -675,6 +676,7 @@ export class Scene3D {
           da.thunked = true;
           this.sound.dockThunk();
           this.overlays.flash("DOCKING CLAMPS ENGAGED", "info", 2400);
+          track("docking-complete");
         }
         if (wall > 7.2) {
           this.dockAnim = null;
