@@ -10,6 +10,7 @@ const PHASE_LABEL: Record<BurnPhase, string> = {
   burn: "BURN",
   flip: "FLIP — DRIVE OFF",
   brake: "BRAKE",
+  dock: "DOCKING",
   off: "DOCKED",
 };
 

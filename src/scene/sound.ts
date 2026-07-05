@@ -160,6 +160,28 @@ export class EngineSound {
     }
   }
 
+  /** Short cold-gas RCS hiss. */
+  rcsPuff() {
+    this.ensure();
+    if (!this.ctx || this.muted) return;
+    const t = this.ctx.currentTime;
+    const len = 0.18;
+    const buf = this.ctx.createBuffer(1, len * this.ctx.sampleRate, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 5200;
+    bp.Q.value = 1.2;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.08, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + len);
+    src.connect(bp).connect(g).connect(this.ctx.destination);
+    src.start(t);
+  }
+
   /** Docking clamps: deep double thunk. */
   dockThunk() {
     this.ensure();

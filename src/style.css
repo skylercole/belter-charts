@@ -223,6 +223,7 @@ button.primary.ride:hover {
 }
 #ride-hud .hud-phase[data-phase="flip"] { color: #ffd27d; }
 #ride-hud .hud-phase[data-phase="brake"] { color: #8fb8d8; }
+#ride-hud .hud-phase[data-phase="dock"] { color: #66e0d8; }
 #ride-hud .hud-rows div {
   display: flex;
   justify-content: space-between;

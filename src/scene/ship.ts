@@ -13,7 +13,7 @@ import { loadPackedMesh, tryLoadGlb } from "./loadmodel";
 /** Fraction of total flight time spent flipping (each side of midpoint). */
 const FLIP_HALF_FRAC = 0.012;
 
-export type BurnPhase = "burn" | "flip" | "brake" | "off";
+export type BurnPhase = "burn" | "flip" | "brake" | "dock" | "off";
 
 export class ShipVisual {
   readonly group = new THREE.Group();
@@ -59,9 +59,26 @@ export class ShipVisual {
     this.plume.position.z = -2.7; // just aft of the 3-unit hull
     this.group.add(this.plume);
 
+    // RCS thrusters for the docking glide: two small cold-gas puff sprites
+    const puffMat = new THREE.SpriteMaterial({
+      color: 0xdfe8f0,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+    });
+    for (const x of [-0.35, 0.35]) {
+      const puff = new THREE.Sprite(puffMat.clone() as THREE.SpriteMaterial);
+      puff.position.set(x, 0, 0.9);
+      puff.scale.setScalar(0.28);
+      this.rcs.push(puff);
+      this.group.add(puff);
+    }
+
     this.group.visible = false;
     scene.add(this.group);
   }
+
+  private rcs: THREE.Sprite[] = [];
 
   /**
    * Load the hull for a ship class. Priority: drop-in models/custom-ship.glb
@@ -114,6 +131,58 @@ export class ShipVisual {
     return tSec < plan.flipTimeSec ? "burn" : "brake";
   }
 
+  /**
+   * Docking epilogue: place the hull at an externally-computed glide
+   * position, drive off, RCS puffing. Orientation holds the braking
+   * attitude. wallSec drives the puff flicker.
+   */
+  updateDocking(
+    plan: FlightPlan,
+    glidePos: Vec3,
+    originKm: Vec3,
+    kmPerPixelAt: (p: Vec3) => number,
+    sizePx: number,
+    wallSec: number
+  ) {
+    this.group.visible = true;
+    this.group.position.set(
+      glidePos.x - originKm.x,
+      glidePos.y - originKm.y,
+      glidePos.z - originKm.z
+    );
+    const s = Math.max(sizePx * kmPerPixelAt(glidePos), this.realKmPerUnit);
+    this.group.scale.setScalar(s);
+    this.orient(plan);
+    this.group.quaternion.copy(this.qDecel);
+    this.plume.visible = false;
+    for (const [i, puff] of this.rcs.entries()) {
+      const mat = puff.material as THREE.SpriteMaterial;
+      // sparse alternating cold-gas pops
+      const t = wallSec * 2.2 + i * 1.7;
+      mat.opacity = Math.sin(t) > 0.86 ? 0.75 : 0;
+    }
+  }
+
+  private hideRcs() {
+    for (const puff of this.rcs) {
+      (puff.material as THREE.SpriteMaterial).opacity = 0;
+    }
+  }
+
+  /** compute qAccel/qDecel from the plan chord */
+  private orient(plan: FlightPlan) {
+    const dir = new THREE.Vector3(
+      plan.arrivePos.x - plan.departPos.x,
+      plan.arrivePos.y - plan.departPos.y,
+      plan.arrivePos.z - plan.departPos.z
+    ).normalize();
+    this.qAccel.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+    const perp = new THREE.Vector3(0, 0, 1).cross(dir);
+    if (perp.lengthSq() < 1e-9) perp.set(1, 0, 0);
+    perp.normalize();
+    this.qDecel.setFromAxisAngle(perp, Math.PI).multiply(this.qAccel);
+  }
+
   update(
     plan: FlightPlan | null,
     timeMs: number,
@@ -128,27 +197,16 @@ export class ShipVisual {
       return null;
     }
     this.group.visible = true;
+    this.hideRcs();
 
     const pos = shipPosition(plan, tSec);
     this.group.position.set(pos.x - originKm.x, pos.y - originKm.y, pos.z - originKm.z);
     const s = Math.max(sizePx * kmPerPixelAt(pos), this.realKmPerUnit);
     this.group.scale.setScalar(s);
 
-    // Orientation: +Z nose along thrust direction.
-    const dir = new THREE.Vector3(
-      plan.arrivePos.x - plan.departPos.x,
-      plan.arrivePos.y - plan.departPos.y,
-      plan.arrivePos.z - plan.departPos.z
-    ).normalize();
-    this.qAccel.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
-    // Flip = 180° about an axis perpendicular to the chord, so the slerp
-    // path is deterministic.
-    const perp = new THREE.Vector3(0, 0, 1).cross(dir);
-    if (perp.lengthSq() < 1e-9) perp.set(1, 0, 0);
-    perp.normalize();
-    this.qDecel
-      .setFromAxisAngle(perp, Math.PI)
-      .multiply(this.qAccel);
+    // Orientation: +Z nose along thrust direction; flip is a deterministic
+    // 180° about an axis perpendicular to the chord (see orient()).
+    this.orient(plan);
 
     const w = Math.max(plan.travelTimeSec * FLIP_HALF_FRAC, 30);
     const phase = this.phase(plan, tSec);

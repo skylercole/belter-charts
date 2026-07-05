@@ -73,6 +73,15 @@ export class Scene3D {
   private ttKey = "";
   private targetPathScratch = new Float64Array(TARGET_PATH_PTS * 3);
   private rideBaseSpeed = 2;
+  /** docking epilogue: wall-clock scripted glide after arrival */
+  private dockAnim: {
+    startWall: number;
+    fromPos: Vec3;
+    endPos: Vec3;
+    arriveMs: number;
+    thunked: boolean;
+    puffs: number;
+  } | null = null;
 
   constructor(
     container: HTMLElement,
@@ -603,19 +612,82 @@ export class Scene3D {
         if (tSec >= s.plan.travelTimeSec && rideMusic.isPlaying()) {
           rideMusic.stop();
         }
-        if (tSec > s.plan.travelTimeSec * 1.02) {
-          this.sound.dockThunk();
-          this.overlays.flash("DOCKING CLAMPS ENGAGED", "info", 2600);
-          s.setRide(false);
+        // Docking epilogue: freeze sim, glide the last stretch on wall time.
+        if (!this.dockAnim && tSec >= s.plan.travelTimeSec) {
+          const destDef = BODY_BY_ID.get(s.plan.destId);
+          const radius = Math.max(destDef?.radiusKm ?? 5, 2);
+          const back = {
+            x: s.plan.departPos.x - s.plan.arrivePos.x,
+            y: s.plan.departPos.y - s.plan.arrivePos.y,
+            z: s.plan.departPos.z - s.plan.arrivePos.z,
+          };
+          const bl = Math.hypot(back.x, back.y, back.z) || 1;
+          const at = (k: number): Vec3 => ({
+            x: s.plan!.arrivePos.x + (back.x / bl) * radius * k,
+            y: s.plan!.arrivePos.y + (back.y / bl) * radius * k,
+            z: s.plan!.arrivePos.z + (back.z / bl) * radius * k,
+          });
+          this.dockAnim = {
+            startWall: performance.now(),
+            fromPos: at(7),
+            endPos: at(1.6),
+            arriveMs: s.plan.arrive.getTime(),
+            thunked: false,
+            puffs: 0,
+          };
           s.setPlaying(false);
-          s.setSpeed(2);
+          this.sound.setThrust(0);
+          this.controls.focus(s.plan.destId);
+          this.controls.setDistTarget(Math.max(radius * 5, 40));
         }
       }
     } else {
       this.overlays.setG(0, false);
     }
+
+    // Drive the docking epilogue (wall clock; sim is frozen at arrival).
+    let hudPhase = phase;
+    if (this.dockAnim && s.ride && s.plan) {
+      const da = this.dockAnim;
+      // user scrubbed away or exited: cancel cleanly
+      if (Math.abs(s.timeMs - da.arriveMs) > 120_000) {
+        this.dockAnim = null;
+        s.setRide(false);
+        s.setSpeed(2);
+      } else {
+        const wall = (performance.now() - da.startWall) / 1000;
+        const p = Math.min(wall / 5.5, 1);
+        const eased = p * p * (3 - 2 * p);
+        const glide = {
+          x: da.fromPos.x + (da.endPos.x - da.fromPos.x) * eased,
+          y: da.fromPos.y + (da.endPos.y - da.fromPos.y) * eased,
+          z: da.fromPos.z + (da.endPos.z - da.fromPos.z) * eased,
+        };
+        this.shipVisual.updateDocking(s.plan, glide, originKm, kmPerPx, 30, wall);
+        hudPhase = "dock";
+        // sparse RCS hisses as the glide corrects
+        const dueTuffs = p < 1 ? Math.floor(p * 4) : 4;
+        if (dueTuffs > da.puffs) {
+          da.puffs = dueTuffs;
+          this.sound.rcsPuff();
+        }
+        if (p >= 1 && !da.thunked) {
+          da.thunked = true;
+          this.sound.dockThunk();
+          this.overlays.flash("DOCKING CLAMPS ENGAGED", "info", 2400);
+        }
+        if (wall > 7.2) {
+          this.dockAnim = null;
+          s.setRide(false);
+          s.setSpeed(2);
+        }
+      }
+    } else if (this.dockAnim && !s.ride) {
+      this.dockAnim = null; // user hit release couch mid-epilogue
+    }
+
     this.lastPhase = phase;
-    this.hud.update(s.ride, s.plan, s.timeMs, phase, s.scenario, s.cockpit);
+    this.hud.update(s.ride, s.plan, s.timeMs, hudPhase, s.scenario, s.cockpit);
     this.commLog.update(s.ride, s.timeMs);
 
     // Tightbeam
