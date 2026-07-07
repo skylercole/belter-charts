@@ -94,25 +94,35 @@ async function boot() {
   let render: (s: ReturnType<typeof store.getState>, dt: number) => void;
 
   const timebarEl = document.getElementById("timebar")!;
-  if (use2d) {
+  const mount2d = () => {
     const canvas = document.getElementById("map") as HTMLCanvasElement;
     const map = new Map2D(canvas, eph);
     render = (s) => map.render(s.timeMs, s.plan);
     mountEventsUi(app, timebarEl, () => {});
+  };
+  if (use2d) {
+    mount2d();
   } else {
-    document.getElementById("map")!.remove();
     const container = document.createElement("div");
     container.id = "scene3d";
     app.prepend(container);
-    const scene = new Scene3D(container, eph, base);
-    render = (s, dt) => scene.render(s, dt);
-    mountNavRail(app, {
-      onSelect: (id) => scene.focus(id),
-      onHome: () => scene.goHome(),
-      current: () => scene.controls.focusId,
-    });
-    bindKeyboard(scene);
-    mountEventsUi(app, timebarEl, (id) => scene.focus(id));
+    try {
+      const scene = new Scene3D(container, eph, base);
+      document.getElementById("map")!.remove();
+      render = (s, dt) => scene.render(s, dt);
+      mountNavRail(app, {
+        onSelect: (id) => scene.focus(id),
+        onHome: () => scene.goHome(),
+        current: () => scene.controls.focusId,
+      });
+      bindKeyboard(scene);
+      mountEventsUi(app, timebarEl, (id) => scene.focus(id));
+    } catch (e) {
+      // No WebGL (blocked or unsupported): fall back to the flat map.
+      console.warn("3D scene unavailable, falling back to 2D map", e);
+      container.remove();
+      mount2d();
+    }
   }
 
   // The ride is a full-screen experience: the planner panel gets out of the way.
@@ -137,7 +147,14 @@ async function boot() {
 }
 
 boot().catch((e) => {
-  const el = document.getElementById("loading")!;
+  // #loading is removed once the ephemerides land; recreate it for
+  // failures that happen later in boot.
+  let el = document.getElementById("loading");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "loading";
+    (document.getElementById("app") ?? document.body).append(el);
+  }
   el.textContent = `failed to load: ${e.message}`;
   console.error(e);
 });

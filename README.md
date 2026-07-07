@@ -3,7 +3,9 @@
 Unofficial navigator for The Expanse's solar system. Real ephemerides, canon
 locations, Epstein flight planner. Browser-only and no account.
 
-Test at https://belter-charts.pages.dev/.
+Live at https://belter-charts.pages.dev/.
+
+[![Belter Charts: Earth to Ceres at 1 g in the corvette, flip-and-burn plotted in the 3D system view](public/og-image.png)](https://belter-charts.pages.dev/?o=earth&d=ceres&hull=corvette&g=1&mode=honest&t=2350-01-01T00%3A00)
 
 **Status: Phase 3 complete — launch-ready** — math core, 3D scene, ride
 mode, canon timeline, honesty toggle, shareable plans, about panel (see
