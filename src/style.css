@@ -312,6 +312,45 @@ button.primary.ride:hover {
 }
 .tool-btn:hover { border-color: #3a628f; color: #b8d8f0; }
 .tool-btn.wide { flex: 1; text-align: left; }
+
+/* ---- instant tooltips (data-tip replaces native title) ---- */
+[data-tip] { position: relative; }
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  translate: -50% 3px;
+  width: max-content;
+  max-width: 220px;
+  padding: 4px 8px;
+  border: 1px solid #3a628f;
+  border-radius: 4px;
+  background: #0d1422;
+  color: #b8d8f0;
+  font-size: 10.5px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: center;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease, translate 0.12s ease;
+  z-index: 50;
+}
+[data-tip]:hover::after {
+  opacity: 1;
+  visibility: visible;
+  translate: -50% 0;
+}
+/* anchor variants for elements near container edges */
+[data-tip][data-tip-pos="left"]::after { left: auto; right: 0; translate: 0 3px; }
+[data-tip][data-tip-pos="left"]:hover::after { translate: 0 0; }
+[data-tip][data-tip-pos="right"]::after { left: 0; translate: 0 3px; }
+[data-tip][data-tip-pos="right"]:hover::after { translate: 0 0; }
+[data-tip][data-tip-pos="below"]::after { bottom: auto; top: calc(100% + 7px); translate: -50% -3px; }
+[data-tip][data-tip-pos="below"]:hover::after { translate: -50% 0; }
 .keys-hint {
   margin-top: 10px;
   padding-top: 8px;
@@ -330,8 +369,10 @@ button.primary.ride:hover {
   margin: 0 0 10px;
   border: 1px solid #24354f;
   border-radius: 4px;
-  overflow: hidden;
+  /* no overflow:hidden — it would clip the [data-tip] tooltip; buttons carry the radius */
 }
+.h-btn:first-child { border-radius: 3px 0 0 3px; }
+.h-btn:last-child { border-radius: 0 3px 3px 0; }
 .h-btn {
   background: #0d1422;
   color: #6d7c92;

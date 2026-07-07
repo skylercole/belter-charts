@@ -39,8 +39,8 @@ export class RideHud {
       <div class="hud-rows"></div>
       <div class="hud-bar"><div class="hud-bar-fill"></div></div>
       <div class="hud-btns">
-        <button class="hud-view" title="toggle cockpit / chase view">cockpit</button>
-        <button class="hud-mute" title="mute">♪</button>
+        <button class="hud-view" data-tip="toggle cockpit / chase view" data-tip-pos="right">cockpit</button>
+        <button class="hud-mute" data-tip="mute / unmute engine sound" aria-label="mute engine sound">♪</button>
         <button class="hud-exit">release couch ✕</button>
       </div>
     `;

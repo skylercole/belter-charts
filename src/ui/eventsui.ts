@@ -38,11 +38,11 @@ export function mountEventsUi(
   const prevBtn = document.createElement("button");
   prevBtn.id = "ev-prev";
   prevBtn.textContent = "◄ ev";
-  prevBtn.title = "previous canon event";
+  prevBtn.dataset.tip = "previous canon event";
   const nextBtn = document.createElement("button");
   nextBtn.id = "ev-next";
   nextBtn.textContent = "ev ►";
-  nextBtn.title = "next canon event";
+  nextBtn.dataset.tip = "next canon event";
   wrap.parentElement!.insertBefore(prevBtn, wrap);
   wrap.parentElement!.insertBefore(nextBtn, wrap.nextSibling);
 

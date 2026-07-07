@@ -39,7 +39,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
       <label>From
         <select id="origin">${options}</select>
       </label>
-      <button id="swap-btn" title="swap origin and destination">⇅</button>
+      <button id="swap-btn" data-tip="swap origin and destination" data-tip-pos="below" aria-label="swap origin and destination">⇅</button>
       <label>To
         <select id="dest">${options}</select>
       </label>
@@ -52,7 +52,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     <div class="g-row" id="g-row"></div>
     <p id="burn-warning" class="warning"></p>
 
-    <div class="honesty-row" id="honesty-row" title="The books' stated accelerations give trips ~10x faster than the books narrate. Pick your truth.">
+    <div class="honesty-row" id="honesty-row" data-tip="The books' stated accelerations give trips ~10x faster than the books narrate. Pick your truth.">
       <button data-mode="honest" class="h-btn">honest physics</button>
       <button data-mode="canon" class="h-btn">canon feel</button>
     </div>
@@ -60,20 +60,20 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     <button id="plan-btn" class="primary">Plan flight</button>
     <div class="result-actions">
       <button id="ride-btn" class="primary ride hidden">▶ Ride the burn</button>
-      <button id="share-btn" class="ghost hidden" title="copy a link to this exact plan">⧉ share</button>
+      <button id="share-btn" class="ghost hidden" data-tip="copy a link to this exact plan" data-tip-pos="left">⧉ share</button>
     </div>
 
     <div class="lag-row">
       <div id="lag" class="lag"></div>
-      <button id="beam-btn" class="tool-btn hidden" title="tightbeam: watch a comm pulse cross at lightspeed">◇</button>
+      <button id="beam-btn" class="tool-btn hidden" data-tip="tightbeam: watch a comm pulse cross at lightspeed" data-tip-pos="left" aria-label="send tightbeam pulse">◇</button>
     </div>
 
     <div id="result" class="result"></div>
 
     <div class="tool-row">
-      <button id="epstein-btn" class="tool-btn wide" title="story mode: ride the first Epstein burn">☄ Epstein's last flight</button>
-      <button id="about-btn" class="tool-btn" title="about, credits, controls">ⓘ</button>
-      <button id="feedback-btn" class="tool-btn" title="send feedback">✉</button>
+      <button id="epstein-btn" class="tool-btn wide" data-tip="story mode: ride the first Epstein burn" data-tip-pos="right">☄ Epstein's last flight</button>
+      <button id="about-btn" class="tool-btn" data-tip="about, credits &amp; controls" data-tip-pos="left" aria-label="about, credits and controls">ⓘ</button>
+      <button id="feedback-btn" class="tool-btn" data-tip="send feedback" data-tip-pos="left" aria-label="send feedback">✉</button>
     </div>
 
     <p class="keys-hint">

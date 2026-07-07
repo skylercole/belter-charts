@@ -11,7 +11,7 @@ const SPEEDS = [
 
 export function mountTimebar(root: HTMLElement) {
   root.innerHTML = `
-    <button id="play" title="play/pause (space)">▶</button>
+    <button id="play" data-tip="play / pause time (space)" data-tip-pos="right" aria-label="play or pause time">▶</button>
     <select id="speed">
       ${SPEEDS.map((s) => `<option value="${s.d}">${s.label}</option>`).join("")}
     </select>
