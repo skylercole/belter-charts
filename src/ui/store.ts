@@ -24,6 +24,8 @@ export interface AppState {
   /** tightbeam pulse in flight: sim time it left the origin */
   beamStartMs: number | null;
   muted: boolean;
+  /** onboarding spotlight tour is on screen */
+  tourOpen: boolean;
 
   setTime(ms: number): void;
   togglePlaying(): void;
@@ -41,6 +43,7 @@ export interface AppState {
   fireBeam(): void;
   clearBeam(): void;
   toggleMuted(): void;
+  setTourOpen(v: boolean): void;
 }
 
 /** Era the UI can scrub; matches the packed small-body coverage with margin. */
@@ -64,6 +67,7 @@ export const store = createStore<AppState>()((set) => ({
   scenario: null,
   beamStartMs: null,
   muted: false,
+  tourOpen: false,
 
   setTime: (ms) =>
     set({ timeMs: Math.min(Math.max(ms, ERA_START_MS), ERA_END_MS) }),
@@ -82,4 +86,5 @@ export const store = createStore<AppState>()((set) => ({
   fireBeam: () => set((s) => ({ beamStartMs: s.timeMs })),
   clearBeam: () => set({ beamStartMs: null }),
   toggleMuted: () => set((s) => ({ muted: !s.muted })),
+  setTourOpen: (v) => set({ tourOpen: v }),
 }));

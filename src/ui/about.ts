@@ -3,6 +3,7 @@
  * CREDITS.md rendered inline. Opened from the panel footer or "?".
  */
 import credits from "../../CREDITS.md?raw";
+import { startTour } from "./tour";
 
 const GITHUB_URL = "https://github.com/skylercole/belter-charts";
 
@@ -69,6 +70,7 @@ export function mountAbout(app: HTMLElement, trigger: HTMLElement) {
         argue in the comments.
       </p>
       ${GITHUB_URL ? `<p><a href="${GITHUB_URL}" target="_blank" rel="noopener">Source on GitHub</a></p>` : ""}
+      <p><button id="tour-replay" class="tour-replay">⟲ replay the tour</button></p>
       <div class="about-credits">
         <h4>Flying</h4>
         <p>Click or double-click a body to fly to it. <b>WASD</b>+<b>R/F</b>
@@ -88,6 +90,10 @@ export function mountAbout(app: HTMLElement, trigger: HTMLElement) {
   app.appendChild(modal);
 
   const close = () => modal.classList.add("hidden");
+  modal.querySelector("#tour-replay")!.addEventListener("click", () => {
+    close();
+    startTour("replay");
+  });
   trigger.addEventListener("click", () => modal.classList.remove("hidden"));
   modal.querySelector(".about-close")!.addEventListener("click", close);
   modal.addEventListener("click", (e) => {

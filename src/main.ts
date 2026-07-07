@@ -12,6 +12,7 @@ import { parseShareUrl } from "./ui/share";
 import { mountNavRail } from "./ui/navrail";
 import { mountPanel } from "./ui/panel";
 import { mountTimebar } from "./ui/timebar";
+import { maybeStartTour } from "./ui/tour";
 import { store } from "./ui/store";
 
 /** Keyboard flight: H home, [ ] cycle, 1-8 planets, 9 Ceres, 0 Sol, G route. */
@@ -118,6 +119,8 @@ async function boot() {
   store.subscribe((s, prev) => {
     if (s.ride !== prev.ride) app.classList.toggle("riding", s.ride);
   });
+
+  maybeStartTour({ sharedArrival: !!shared });
 
   let lastFrame = performance.now();
   function frame(now: number) {

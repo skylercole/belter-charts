@@ -906,3 +906,109 @@ button.primary:hover {
   white-space: nowrap;
   font-size: 12px;
 }
+
+/* ---- onboarding tour ---- */
+#tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  overflow: hidden;
+}
+.tour-cutout {
+  position: absolute;
+  border: 1px solid #7fd4a8;
+  border-radius: 10px;
+  box-shadow:
+    0 0 14px 2px rgba(127, 212, 168, 0.35),
+    0 0 0 200vmax rgba(3, 4, 7, 0.78);
+  transition:
+    top 0.3s ease,
+    left 0.3s ease,
+    width 0.3s ease,
+    height 0.3s ease;
+  pointer-events: none;
+}
+.tour-tip {
+  position: absolute;
+  width: min(300px, calc(100vw - 24px));
+  background: #0a0e18;
+  border: 1px solid #1d2a3f;
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition:
+    top 0.3s ease,
+    left 0.3s ease;
+}
+.tour-step-count {
+  color: #55637a;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+.tour-tip h3 {
+  color: #e8f0fa;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.tour-tip p {
+  color: #a9b6c8;
+  font-size: 12px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.tour-tip i {
+  color: #7fd4a8;
+  font-style: normal;
+}
+.tour-btns {
+  display: flex;
+  gap: 6px;
+}
+.tour-btns button {
+  font: inherit;
+  font-size: 11px;
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.tour-skip {
+  background: none;
+  border: none;
+  color: #55637a;
+  margin-right: auto;
+  padding-left: 0;
+}
+.tour-skip:hover {
+  color: #8899aa;
+}
+.tour-back {
+  background: #0d1422;
+  color: #8899aa;
+  border: 1px solid #24354f;
+}
+.tour-next {
+  background: #7fd4a8;
+  color: #06080f;
+  border: 1px solid #7fd4a8;
+}
+.tour-next:hover {
+  background: #98e0ba;
+}
+.tour-replay {
+  background: #0d1422;
+  color: #8fb8d8;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+@media (max-width: 480px) {
+  .tour-tip {
+    left: 12px !important;
+    right: 12px;
+    top: auto !important;
+    bottom: 84px;
+    width: auto;
+  }
+}

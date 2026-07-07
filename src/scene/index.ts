@@ -382,7 +382,7 @@ export class Scene3D {
     };
 
     // attract mode drives the controls when everything is idle
-    this.attract.update(dt, s.playing || s.ride || s.beamStartMs !== null);
+    this.attract.update(dt, s.playing || s.ride || s.beamStartMs !== null || s.tourOpen);
 
     // Travel-time sublabels are origin-relative — meaningless mid-ride.
     this.labelRenderer.domElement.classList.toggle("riding", s.ride);
