@@ -2,7 +2,8 @@
  * Comm chatter: a radio log strip that plays scripted lines at fractions of
  * the flight. Lines are queued by sim-time so scrubbing skips cleanly.
  */
-import { BODY_BY_ID } from "../data/bodies";
+import { arrivalMode, BODY_BY_ID } from "../data/bodies";
+import type { ArrivalMode } from "../data/bodies";
 import type { FlightPlan } from "../planner";
 
 interface CommLine {
@@ -11,8 +12,35 @@ interface CommLine {
   text: string;
 }
 
+/** Last two lines of the flight, flavored by how this arrival actually ends. */
+function arrivalLines(mode: ArrivalMode, dest: string): CommLine[] {
+  switch (mode) {
+    case "land":
+      return [
+        { at: 0.96, text: `${dest} ground: pad assigned, bring her down easy.` },
+        { at: 0.999, text: `ground: skids down. Welcome to ${dest}, beratna.` },
+      ];
+    case "orbit":
+      return [
+        { at: 0.96, text: `nav: braking for orbital insertion. ${dest} fills the window.` },
+        { at: 0.999, text: "nav: orbit established. No port down there, only clouds." },
+      ];
+    case "hold":
+      return [
+        { at: 0.96, text: "nav: slow approach. Nobody knows what that thing does, sasa ke?" },
+        { at: 0.999, text: "nav: all stop. Station-keeping at the threshold." },
+      ];
+    case "dock":
+      return [
+        { at: 0.96, text: `${dest} approach: slot confirmed, bring her in easy.` },
+        { at: 0.999, text: "dock: clamps engaged. Welcome aboard, beratna." },
+      ];
+  }
+}
+
 function routeScript(plan: FlightPlan): CommLine[] {
-  const dest = BODY_BY_ID.get(plan.destId)?.name ?? plan.destId;
+  const destDef = BODY_BY_ID.get(plan.destId);
+  const dest = destDef?.name ?? plan.destId;
   const origin = BODY_BY_ID.get(plan.originId)?.name ?? plan.originId;
   const heavy = plan.accelG > 2;
   return [
@@ -26,8 +54,7 @@ function routeScript(plan: FlightPlan): CommLine[] {
     { at: 0.485, text: "ALL HANDS: brace for flip. Drive going dark." },
     { at: 0.515, text: "nav: flip complete. Tail-first, braking burn lit." },
     { at: 0.75, text: `nav: three quarters. ${dest} traffic has our vector.` },
-    { at: 0.96, text: `${dest} approach: slot confirmed, bring her in easy.` },
-    { at: 0.999, text: "dock: clamps engaged. Welcome aboard, beratna." },
+    ...arrivalLines(arrivalMode(destDef), dest),
   ];
 }
 

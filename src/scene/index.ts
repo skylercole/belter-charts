@@ -11,7 +11,7 @@
 import * as THREE from "three";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { track } from "../analytics";
-import { BODIES, BODY_BY_ID } from "../data/bodies";
+import { arrivalMode, BODIES, BODY_BY_ID } from "../data/bodies";
 import type { Ephemeris } from "../ephemeris";
 import { sampleOrbitPath, type OrbitPath } from "../ephemeris/orbitpath";
 import { dateToJd } from "../ephemeris/time";
@@ -674,8 +674,19 @@ export class Scene3D {
         }
         if (p >= 1 && !da.thunked) {
           da.thunked = true;
-          this.sound.dockThunk();
-          this.overlays.flash("DOCKING CLAMPS ENGAGED", "info", 2400);
+          const mode = arrivalMode(BODY_BY_ID.get(s.plan.destId));
+          // orbit/hold: no clamps or skids to slam home, so no thunk
+          if (mode === "dock" || mode === "land") this.sound.dockThunk();
+          this.overlays.flash(
+            {
+              dock: "DOCKING CLAMPS ENGAGED",
+              land: "TOUCHDOWN — SKIDS DOWN",
+              orbit: "ORBITAL INSERTION COMPLETE",
+              hold: "STATION-KEEPING AT THE RING",
+            }[mode],
+            "info",
+            2400
+          );
           track("docking-complete");
         }
         if (wall > 7.2) {

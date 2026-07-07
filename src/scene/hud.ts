@@ -1,7 +1,8 @@
 /** Ride-the-burn HUD: phase, velocity, g, progress, cockpit/mute/exit. */
 import type { FlightPlan } from "../planner";
 import { G0 } from "../planner";
-import { BODY_BY_ID } from "../data/bodies";
+import { arrivalMode, BODY_BY_ID } from "../data/bodies";
+import type { ArrivalMode } from "../data/bodies";
 import { fmtDuration, fmtVelocity } from "../ui/format";
 import { store } from "../ui/store";
 import type { BurnPhase } from "./ship";
@@ -12,6 +13,14 @@ const PHASE_LABEL: Record<BurnPhase, string> = {
   brake: "BRAKE",
   dock: "DOCKING",
   off: "DOCKED",
+};
+
+/** Arrival phases read differently when there's nothing to clamp onto. */
+const ARRIVAL_LABEL: Record<ArrivalMode, { dock: string; off: string }> = {
+  dock: { dock: "DOCKING", off: "DOCKED" },
+  land: { dock: "LANDING", off: "LANDED" },
+  orbit: { dock: "ORBIT INSERTION", off: "IN ORBIT" },
+  hold: { dock: "APPROACH", off: "HOLDING" },
 };
 
 export class RideHud {
@@ -81,7 +90,9 @@ export class RideHud {
         ? "RUNAWAY BURN"
         : epstein
           ? "DRIVE OFF"
-          : PHASE_LABEL[phase];
+          : phase === "dock" || phase === "off"
+            ? ARRIVAL_LABEL[arrivalMode(BODY_BY_ID.get(plan.destId))][phase]
+            : PHASE_LABEL[phase];
     this.phaseEl.dataset.phase = epstein ? "flip" : phase;
 
     if (epstein) {
