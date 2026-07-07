@@ -114,6 +114,8 @@ body,
   top: 0;
   left: 0;
   pointer-events: none;
+  /* contain CSS2DRenderer's inline per-label z-indexes so modals stack above */
+  z-index: 1;
 }
 .body-label {
   pointer-events: auto;
@@ -145,6 +147,10 @@ body,
   font-size: 9px;
   color: #8899aa;
   letter-spacing: 0.03em;
+}
+/* travel times are origin-relative — hide them while riding a burn */
+.label-layer.riding .bl-time {
+  display: none;
 }
 
 .beam-label {
@@ -360,8 +366,9 @@ button.primary.ride:hover {
 }
 .result-actions .ride { flex: 1; }
 
-/* ---- about modal ---- */
-#about-modal {
+/* ---- about + feedback modals ---- */
+#about-modal,
+#feedback-modal {
   position: absolute;
   inset: 0;
   background: rgba(3, 4, 7, 0.72);
@@ -409,6 +416,32 @@ button.primary.ride:hover {
 }
 .about-credits ul { margin: 4px 0 8px 16px; }
 .about-credits a { color: #8fb8d8; }
+
+/* ---- feedback form ---- */
+.feedback-box { width: min(420px, 92vw); }
+.feedback-box label {
+  display: block;
+  color: #8899aa;
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+.feedback-box textarea,
+.feedback-box input[type="email"] {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  background: #0d1422;
+  color: #cdd6e4;
+  border: 1px solid #24354f;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font: inherit;
+  resize: vertical;
+}
+.feedback-box .botcheck { display: none; }
+.feedback-error { color: #e07a6a !important; }
+.feedback-error a { color: #8fb8d8; }
+.feedback-done { color: #6d8f7d !important; }
 
 /* ---- g-force vignette ---- */
 #g-vignette {

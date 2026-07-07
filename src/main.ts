@@ -6,6 +6,7 @@ import { Scene3D } from "./scene";
 import { effectiveAccelG, planFlight } from "./planner";
 import { TimelineEphemeris } from "./timeline";
 import { mountAbout } from "./ui/about";
+import { mountFeedback } from "./ui/feedback";
 import { mountEventsUi } from "./ui/eventsui";
 import { parseShareUrl } from "./ui/share";
 import { mountNavRail } from "./ui/navrail";
@@ -30,7 +31,12 @@ const DIGIT_FOCUS: Record<string, string> = {
 function bindKeyboard(scene: Scene3D) {
   window.addEventListener("keydown", (e) => {
     const t = e.target as HTMLElement;
-    if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement) return;
+    if (
+      t instanceof HTMLInputElement ||
+      t instanceof HTMLSelectElement ||
+      t instanceof HTMLTextAreaElement
+    )
+      return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.code in DIGIT_FOCUS) scene.focus(DIGIT_FOCUS[e.code]);
     else if (e.code === "KeyH") scene.goHome();
@@ -60,6 +66,7 @@ async function boot() {
   mountPanel(document.getElementById("panel")!, eph);
   mountTimebar(document.getElementById("timebar")!);
   mountAbout(document.getElementById("app")!, document.getElementById("about-btn")!);
+  mountFeedback(document.getElementById("app")!, document.getElementById("feedback-btn")!);
 
   if (shared) {
     track("shared-link-opened");

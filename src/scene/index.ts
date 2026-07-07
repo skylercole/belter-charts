@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { track } from "../analytics";
 import { arrivalMode, BODIES, BODY_BY_ID } from "../data/bodies";
+import type { ArrivalMode } from "../data/bodies";
 import type { Ephemeris } from "../ephemeris";
 import { sampleOrbitPath, type OrbitPath } from "../ephemeris/orbitpath";
 import { dateToJd } from "../ephemeris/time";
@@ -82,7 +83,14 @@ export class Scene3D {
     arriveMs: number;
     thunked: boolean;
     puffs: number;
+    mode: ArrivalMode;
+    /** log-space dolly endpoints: one continuous zoom synced to the glide */
+    dollyFromLn: number;
+    dollyToLn: number;
   } | null = null;
+  /** last drawn sim ship position; the epilogue glide starts here, not at a fixed offset */
+  private lastShipPos: Vec3 | null = null;
+  private fillLight: THREE.PointLight;
 
   constructor(
     container: HTMLElement,
@@ -122,6 +130,10 @@ export class Scene3D {
     this.sunLight = new THREE.PointLight(0xffffff, 2.4, 0, 0);
     this.scene.add(this.sunLight);
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.07));
+    // Camera-side fill so night-side arrivals stay readable; lit only
+    // during the docking epilogue.
+    this.fillLight = new THREE.PointLight(0xcfe0f5, 0, 0, 0);
+    this.scene.add(this.fillLight);
 
     this.visuals = buildBodies(this.scene, base, (id) => this.controls.focus(id));
     this.trajectory = new TrajectoryVisual(this.scene);
@@ -183,6 +195,7 @@ export class Scene3D {
         }
         this.braceWarned = false;
         this.epitaphShown = false;
+        this.lastShipPos = null;
         if (s.scenario === "epstein" && s.plan) {
           this.commLog.setCustomScript(s.plan, EPSTEIN_SCRIPT);
         } else {
@@ -371,6 +384,9 @@ export class Scene3D {
     // attract mode drives the controls when everything is idle
     this.attract.update(dt, s.playing || s.ride || s.beamStartMs !== null);
 
+    // Travel-time sublabels are origin-relative — meaningless mid-ride.
+    this.labelRenderer.domElement.classList.toggle("riding", s.ride);
+
     const originKm = this.controls.update(dt, resolve, date);
 
     // Ship state first (drives camera in cockpit mode).
@@ -528,7 +544,7 @@ export class Scene3D {
       const tSec = (s.timeMs - s.plan.depart.getTime()) / 1000;
       // Retire the overlay once the flight is well over — otherwise the
       // target visibly sails away from a stale chord and reads as a miss.
-      this.trajectory.setExpired(tSec > s.plan.travelTimeSec + 6 * 3600);
+      this.trajectory.setExpired(tSec > s.plan.travelTimeSec + 6 * 3600 || !!this.dockAnim);
       this.trajectory.update(originKm, kmPerPx);
       // Mid-flight: the target's own future path to the intercept point.
       if (tSec > 0 && tSec < s.plan.travelTimeSec && this.eph.exists(s.plan.destId, date)) {
@@ -553,6 +569,7 @@ export class Scene3D {
     if (s.ride && s.plan) {
       const tSec = (s.timeMs - s.plan.depart.getTime()) / 1000;
       const epstein = s.scenario === "epstein";
+      if (shipState) this.lastShipPos = shipState.pos;
 
       this.overlays.setG(phase === "flip" || phase === "off" ? 0 : s.plan.accelG, thrusting);
 
@@ -580,7 +597,7 @@ export class Scene3D {
       // ship and target so the convergence is visible, and taper sim speed
       // so the merge doesn't flash past.
       const progress = tSec / s.plan.travelTimeSec;
-      if (!epstein && shipState && progress > 0.75 && progress < 1) {
+      if (!epstein && shipState && progress > 0.75 && progress < 1 && !this.dockAnim) {
         if (!s.cockpit) {
           // focus the live ship-target midpoint: both guaranteed in frame
           if (this.controls.focusId !== DOCK_FOCUS) this.controls.focus(DOCK_FOCUS);
@@ -588,8 +605,8 @@ export class Scene3D {
           const sep = distance(shipState.pos, target);
           this.controls.setDistTarget(Math.max(2500, sep * 1.15));
         }
-        if (progress > 0.9) {
-          const f = Math.max(0.15, (1 - progress) / 0.1);
+        if (progress > 0.97) {
+          const f = Math.max(0.35, (1 - progress) / 0.03);
           s.setSpeed(this.rideBaseSpeed * f);
         }
       }
@@ -617,6 +634,9 @@ export class Scene3D {
         if (!this.dockAnim && tSec >= s.plan.travelTimeSec) {
           const destDef = BODY_BY_ID.get(s.plan.destId);
           const radius = Math.max(destDef?.radiusKm ?? 5, 2);
+          const mode = arrivalMode(destDef);
+          // dock/land end against the hull/surface; orbit/hold stand off
+          const endK = { dock: 1.15, land: 1.06, orbit: 2.2, hold: 1.6 }[mode];
           const back = {
             x: s.plan.departPos.x - s.plan.arrivePos.x,
             y: s.plan.departPos.y - s.plan.arrivePos.y,
@@ -628,18 +648,52 @@ export class Scene3D {
             y: s.plan!.arrivePos.y + (back.y / bl) * radius * k,
             z: s.plan!.arrivePos.z + (back.z / bl) * radius * k,
           });
+          // Glide in from wherever the ship was last drawn: no teleport.
+          const dLast = this.lastShipPos
+            ? distance(this.lastShipPos, s.plan.arrivePos)
+            : radius * 8;
+          const startK = Math.min(Math.max(dLast / radius, 3), 8);
+          const dollyTo = Math.max(radius * 5, 40);
           this.dockAnim = {
             startWall: performance.now(),
-            fromPos: at(7),
-            endPos: at(1.6),
+            fromPos: at(startK),
+            endPos: at(endK),
             arriveMs: s.plan.arrive.getTime(),
             thunked: false,
             puffs: 0,
+            mode,
+            // floor at dollyTo: never dolly outward on a user already zoomed in
+            dollyFromLn: Math.log(Math.max(this.controls.dist, dollyTo)),
+            dollyToLn: Math.log(dollyTo),
           };
           s.setPlaying(false);
+          // Snap the frozen clock to exact arrival so the final comm lines
+          // fire and the scrub-cancel window is centered.
+          s.setTime(this.dockAnim.arriveMs);
           this.sound.setThrust(0);
+          // Camera rail: sit on the approach side, biased sunward so the
+          // lit limb faces us; the glide path then stays in frame and is
+          // never occluded by the body.
+          const ax = back.x / bl;
+          const ay = back.y / bl;
+          const az = back.z / bl;
+          const rs =
+            Math.hypot(s.plan.arrivePos.x, s.plan.arrivePos.y, s.plan.arrivePos.z) || 1;
+          let cx = ax - (0.7 * s.plan.arrivePos.x) / rs;
+          let cy = ay - (0.7 * s.plan.arrivePos.y) / rs;
+          let cz = az - (0.7 * s.plan.arrivePos.z) / rs;
+          const cl = Math.hypot(cx, cy, cz) || 1;
+          cx /= cl;
+          cy /= cl;
+          cz /= cl;
+          const desiredYaw = Math.atan2(cy, cx);
+          const desiredPitch = Math.asin(Math.min(Math.max(cz, -1), 1)) + 0.15;
+          // unwrap so the damped ease rotates the short way around
+          let dy = desiredYaw - this.controls.yaw;
+          dy = ((dy % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+          this.controls.setOrientation(this.controls.yaw + dy, desiredPitch);
           this.controls.focus(s.plan.destId);
-          this.controls.setDistTarget(Math.max(radius * 5, 40));
+          this.controls.setDistTarget(Math.exp(this.dockAnim.dollyFromLn));
         }
       }
     } else {
@@ -647,6 +701,9 @@ export class Scene3D {
     }
 
     // Drive the docking epilogue (wall clock; sim is frozen at arrival).
+    // Fill light is re-raised below while the epilogue runs; zeroing it
+    // here first covers every exit path.
+    this.fillLight.intensity = 0;
     let hudPhase = phase;
     if (this.dockAnim && s.ride && s.plan) {
       const da = this.dockAnim;
@@ -666,6 +723,18 @@ export class Scene3D {
         };
         this.shipVisual.updateDocking(s.plan, glide, originKm, kmPerPx, 30, wall);
         hudPhase = "dock";
+        // dolly synced to the glide: one continuous log-space move; the
+        // wheel regains control once the glide settles
+        if (p < 1) {
+          this.controls.setDistTarget(
+            Math.exp(da.dollyFromLn + (da.dollyToLn - da.dollyFromLn) * eased)
+          );
+        }
+        // fill: ramp in over 1.5 s, fade out over the last 0.8 s
+        const rIn = Math.min(wall / 1.5, 1);
+        const rOut = Math.min(Math.max((7.2 - wall) / 0.8, 0), 1);
+        this.fillLight.intensity = 0.5 * rIn * rIn * (3 - 2 * rIn) * rOut;
+        this.fillLight.position.copy(this.camera.position);
         // sparse RCS hisses as the glide corrects
         const dueTuffs = p < 1 ? Math.floor(p * 4) : 4;
         if (dueTuffs > da.puffs) {
@@ -674,7 +743,7 @@ export class Scene3D {
         }
         if (p >= 1 && !da.thunked) {
           da.thunked = true;
-          const mode = arrivalMode(BODY_BY_ID.get(s.plan.destId));
+          const mode = da.mode;
           // orbit/hold: no clamps or skids to slam home, so no thunk
           if (mode === "dock" || mode === "land") this.sound.dockThunk();
           this.overlays.flash(

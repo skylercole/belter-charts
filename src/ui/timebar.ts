@@ -28,7 +28,11 @@ export function mountTimebar(root: HTMLElement) {
 
   play.addEventListener("click", () => store.getState().togglePlaying());
   window.addEventListener("keydown", (e) => {
-    if (e.code === "Space" && !(e.target instanceof HTMLInputElement)) {
+    if (
+      e.code === "Space" &&
+      !(e.target instanceof HTMLInputElement) &&
+      !(e.target instanceof HTMLTextAreaElement)
+    ) {
       e.preventDefault();
       store.getState().togglePlaying();
     }

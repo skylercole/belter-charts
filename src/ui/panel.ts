@@ -73,6 +73,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     <div class="tool-row">
       <button id="epstein-btn" class="tool-btn wide" title="story mode: ride the first Epstein burn">☄ Epstein's last flight</button>
       <button id="about-btn" class="tool-btn" title="about, credits, controls">ⓘ</button>
+      <button id="feedback-btn" class="tool-btn" title="send feedback">✉</button>
     </div>
 
     <p class="keys-hint">

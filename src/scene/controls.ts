@@ -107,7 +107,12 @@ export class FocusControls {
 
     window.addEventListener("keydown", (e) => {
       const t = e.target as HTMLElement;
-      if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement) return;
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLSelectElement ||
+        t instanceof HTMLTextAreaElement
+      )
+        return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       this.keys.add(e.code);
     });
