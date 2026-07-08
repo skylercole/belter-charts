@@ -13,6 +13,7 @@ import { mountNavRail } from "./ui/navrail";
 import { mountPanel } from "./ui/panel";
 import { mountTimebar } from "./ui/timebar";
 import { maybeStartTour } from "./ui/tour";
+import { isViewportGated, mountMobileGate } from "./ui/mobileGate";
 import { store } from "./ui/store";
 
 /** Keyboard flight: H home, [ ] cycle, 1-8 planets, 9 Ceres, 0 Sol, G route. */
@@ -48,6 +49,14 @@ function bindKeyboard(scene: Scene3D) {
 }
 
 async function boot() {
+  // Hard block on phone-width viewports: the gate takes over and boot
+  // re-runs only if the viewport grows past the threshold.
+  if (isViewportGated()) {
+    mountMobileGate(() => {
+      boot().catch(bootError);
+    });
+    return;
+  }
   const base = import.meta.env.BASE_URL;
   const eph = new TimelineEphemeris(await loadEphemeris(`${base}ephem`));
   document.getElementById("loading")!.remove();
@@ -146,7 +155,7 @@ async function boot() {
   requestAnimationFrame(frame);
 }
 
-boot().catch((e) => {
+function bootError(e: Error) {
   // #loading is removed once the ephemerides land; recreate it for
   // failures that happen later in boot.
   let el = document.getElementById("loading");
@@ -157,4 +166,6 @@ boot().catch((e) => {
   }
   el.textContent = `failed to load: ${e.message}`;
   console.error(e);
-});
+}
+
+boot().catch(bootError);
