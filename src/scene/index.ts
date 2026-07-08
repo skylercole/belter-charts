@@ -28,7 +28,6 @@ import { CommLog } from "./commlog";
 import { FocusControls, SHIP_FOCUS } from "./controls";
 import { EPSTEIN_EPITAPH, EPSTEIN_SCRIPT } from "./epstein";
 import { RideHud } from "./hud";
-import { rideMusic } from "./music";
 import { RideOverlays } from "./overlays";
 import { ShipVisual, type BurnPhase } from "./ship";
 import { EngineSound } from "./sound";
@@ -114,7 +113,6 @@ export class Scene3D {
     this.camera.up.set(0, 0, 1); // ecliptic north
 
     this.controls = new FocusControls(this.renderer.domElement, 9 * AU_KM);
-    rideMusic.setBaseUrl(base);
 
     // Skybox: Milky Way panorama (galactic orientation not aligned; v1).
     new THREE.TextureLoader().load(`${base}textures/skybox_milky_way.jpg`, (tex) => {
@@ -150,17 +148,11 @@ export class Scene3D {
     this.bindDoubleClick();
 
     // Runs synchronously inside the Engage click's dispatch, so the
-    // AudioContexts are created within a user gesture.
+    // AudioContext is created within a user gesture.
     store.subscribe((s, prev) => {
       if (s.ride && !prev.ride) {
         this.rideBaseSpeed = s.speedDaysPerSec;
         this.sound.unlock();
-        rideMusic.unlock();
-        if (s.plan) {
-          // wall-clock ride length picks the track (short hop vs epic)
-          const wallSec = s.plan.travelTimeSec / 86_400 / s.speedDaysPerSec;
-          rideMusic.start(s.scenario === "epstein" ? 45 : wallSec);
-        }
         this.controls.focus(SHIP_FOCUS);
         this.controls.rideLock = true;
         // Cinematic chase seat: above the ecliptic, behind the ship, view
@@ -209,7 +201,6 @@ export class Scene3D {
       if (!s.ride && prev.ride) {
         this.controls.rideLock = false;
         this.sound.stop();
-        rideMusic.stop();
         this.overlays.setG(0, false);
         this.overlays.hideEpitaph();
         if (this.controls.focusId === SHIP_FOCUS || this.controls.focusId === DOCK_FOCUS) {
@@ -220,7 +211,6 @@ export class Scene3D {
       }
       if (s.muted !== prev.muted) {
         this.sound.setMuted(s.muted);
-        rideMusic.setMuted(s.muted);
       }
       if (s.shipId !== prev.shipId) this.shipVisual.setHull(s.shipId);
     });
@@ -584,11 +574,7 @@ export class Scene3D {
         this.sound.flipCue();
         this.sound.creaks();
       }
-      if (phase !== this.lastPhase) rideMusic.setFlip(phase === "flip");
-
-      // rumble sits under the soundtrack: duck it while music plays
-      const duck = rideMusic.isPlaying() ? 0.45 : 1;
-      const thrust = thrusting ? (0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1)) * duck : 0;
+      const thrust = thrusting ? 0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1) : 0;
       this.sound.setThrust(thrust);
 
       // Docking view: braking makes the target angularly diverge from the
@@ -617,7 +603,6 @@ export class Scene3D {
           this.epitaphShown = true;
           s.setPlaying(false);
           this.sound.setThrust(0);
-          rideMusic.stop();
           this.sound.creaks();
           this.overlays.showEpitaph(EPSTEIN_EPITAPH, () => {
             s.setRide(false);
@@ -625,11 +610,6 @@ export class Scene3D {
           });
         }
       } else {
-        // Burn complete: cut the music right at arrival, even if the ride
-        // lingers (docked pause, user scrubbing around the end).
-        if (tSec >= s.plan.travelTimeSec && rideMusic.isPlaying()) {
-          rideMusic.stop();
-        }
         // Docking epilogue: freeze sim, glide the last stretch on wall time.
         if (!this.dockAnim && tSec >= s.plan.travelTimeSec) {
           const destDef = BODY_BY_ID.get(s.plan.destId);

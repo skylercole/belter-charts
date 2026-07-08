@@ -102,17 +102,9 @@ Running log of every modeling assumption, per Plan.md. Update as decisions land.
   Canon gives no exact acceleration; the point is the one-way trajectory,
   not the numbers. The scenario ship ignores fuel/mass modeling.
 
-## Sound & music
+## Sound
 - Sound effects (drive rumble, klaxon, heartbeat, creaks, docking) are
-  synthesized at runtime with WebAudio.
-- Ride soundtrack: four original project-owned tracks in `public/music/`
-  ("Neon Overdrive" 1-2, ~60 s; "Chrome Overdrive" 1-2, ~250 s). Track choice
-  follows the ride's wall-clock length: under ~65 s gets a short track,
-  longer rides get an epic; the two tracks in a class alternate. No licensed
-  recordings ship with the app.
-- Mixing: soundtrack runs through a compressor; the engine rumble is ducked
-  to 45% while music plays; a lowpass pulls the music down during the
-  zero-thrust flip.
+  synthesized at runtime with WebAudio. No recordings ship with the app.
 
 ## Physics honesty toggle
 - "Honest physics" flies the stated g. "Canon feel" divides acceleration by

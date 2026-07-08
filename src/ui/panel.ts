@@ -175,7 +175,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     const plan = s.plan;
     if (!plan) return;
     // Ride length scales with the journey: quick hops play out in ~30 s,
-    // long hauls stretch toward 2.5 min so the epic soundtrack breathes.
+    // long hauls stretch toward 2.5 min so the scale of the trip registers.
     const days = plan.travelTimeSec / 86_400;
     const wallSec = Math.min(Math.max(days * 9, 30), 150);
     s.setTime(plan.depart.getTime());
