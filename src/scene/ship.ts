@@ -9,6 +9,7 @@ import { SHIP_BY_ID } from "../data/ships";
 import type { Vec3 } from "../ephemeris/vec";
 import { shipPosition, type FlightPlan } from "../planner";
 import { loadPackedMesh, tryLoadGlb } from "./loadmodel";
+import { paintShip } from "./skins";
 
 /** Fraction of total flight time spent flipping (each side of midpoint). */
 const FLIP_HALF_FRAC = 0.012;
@@ -101,16 +102,27 @@ export class ShipVisual {
     if (!cls?.model) return; // hauler: keep the placeholder hull
 
     try {
-      let geo = this.geoCache.get(cls.model);
+      // cache per ship class: the livery is baked into the geometry
+      let geo = this.geoCache.get(shipId);
       if (!geo) {
         geo = (await loadPackedMesh(`${this.base}models/${cls.model}`)).geometry;
-        this.geoCache.set(cls.model, geo);
+        if (cls.skin) {
+          // de-index so each face can take a flat livery color
+          geo = geo.toNonIndexed();
+          const pos = geo.getAttribute("position").array;
+          geo.setAttribute(
+            "color",
+            new THREE.BufferAttribute(paintShip(pos, cls.skin), 3, true)
+          );
+        }
+        this.geoCache.set(shipId, geo);
       }
       if (this.currentHull !== shipId) return; // user switched again mid-load
       const mesh = new THREE.Mesh(
         geo,
         new THREE.MeshStandardMaterial({
-          color: cls.modelColor,
+          color: cls.skin ? 0xffffff : cls.modelColor,
+          vertexColors: !!cls.skin,
           roughness: 0.42,
           metalness: 0.62, // picks up the env panorama
           flatShading: true,

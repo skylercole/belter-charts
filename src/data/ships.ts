@@ -15,8 +15,23 @@ export interface ShipClass {
   model?: string;
   /** real hull length, metres — drives close-up scale */
   lengthM: number;
-  /** hull material tint */
+  /** hull material tint (fallback when no skin) */
   modelColor: number;
+  /** faction livery, painted as vertex colors at load (scene/skins.ts) */
+  skin?: SkinSpec;
+}
+
+/** Livery painted onto the hull in normalized model space (nose +Z). */
+export interface SkinSpec {
+  pattern: "mcrn" | "racer";
+  /** main armor color */
+  base: number;
+  /** stripe / marking color */
+  accent: number;
+  /** engine and shadow sections */
+  trim: number;
+  /** accent stripe bands as z ranges, nose at +1.5 */
+  stripes?: Array<[number, number]>;
 }
 
 export const SHIPS: ShipClass[] = [
@@ -38,6 +53,7 @@ export const SHIPS: ShipClass[] = [
     model: "rocinante.fnm",
     lengthM: 46,
     modelColor: 0x5a544e,
+    skin: { pattern: "mcrn", base: 0x4a4540, accent: 0x9c3a26, trim: 0x2b2926, stripes: [[0.32, 0.58]] },
   },
   {
     id: "pinnace",
@@ -48,6 +64,7 @@ export const SHIPS: ShipClass[] = [
     model: "razorback.fnm",
     lengthM: 34,
     modelColor: 0xd8d2c8,
+    skin: { pattern: "racer", base: 0xe8e4dc, accent: 0xb3231f, trim: 0x3a3733, stripes: [[-0.75, -0.55]] },
   },
   {
     id: "battleship",
@@ -58,6 +75,7 @@ export const SHIPS: ShipClass[] = [
     model: "donnager.fnm",
     lengthM: 476,
     modelColor: 0x4c4844,
+    skin: { pattern: "mcrn", base: 0x504a45, accent: 0xa03d24, trim: 0x2e2b29, stripes: [[0.72, 1.02], [-0.12, 0.06]] },
   },
 ];
 
