@@ -6,6 +6,13 @@
   Rocinante v2.0" print files (thingiverse.com/thing:2060060, **CC-BY 3.0,
   published by Syfy**). Built by `tools/build-ship.ts`: sections stacked and
   joint-aligned, vertex-cluster welded at 0.6 mm, nose +Z, length normalized.
+- `donnager.fnm` — assembled by `tools/assemble-donnager.ts`
+  (`npm run build-donnager`) from the packed print plate at
+  `tools/raw/donnager-plate.fnm` ("Donnager Single print",
+  thingiverse.com/thing:1249800, **CC-BY 3.0**, a plate remix of the SYFY
+  Donnager v2.0). The plate parts are split, re-posed into the ship (nose
+  +Z, four stern nacelles, dorsal railgun turrets), welded and
+  length-normalized.
 
 ## Drop-in overrides (optional, not committed)
 Place a GLB here and it takes precedence at load time:

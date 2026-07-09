@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "fetch-horizons": "tsx tools/fetch-horizons.ts",
     "fetch-assets": "tsx tools/fetch-assets.ts",
-    "build-rocks": "tsx tools/build-rocks.ts"
+    "build-rocks": "tsx tools/build-rocks.ts",
+    "build-donnager": "tsx tools/assemble-donnager.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",
