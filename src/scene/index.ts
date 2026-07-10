@@ -357,9 +357,13 @@ export class Scene3D {
     const jdNow = dateToJd(date);
 
     const resolve = (id: string, d: Date): Vec3 => {
+      // Ship-anchored focuses use the raw float timeMs, not d.getTime():
+      // Date truncates fractional ms, and at ~100 km/s a sub-ms skew puts
+      // the origin up to ~100 m off the ship — a violent shimmer when the
+      // camera is at hull scale.
       if (id === SHIP_FOCUS) {
         if (!s.plan) return this.eph.stateOf(s.destId, d).pos;
-        const t = (d.getTime() - s.plan.depart.getTime()) / 1000;
+        const t = (s.timeMs - s.plan.depart.getTime()) / 1000;
         return shipPosition(s.plan, t);
       }
       if (id === ROUTE_FOCUS) {
@@ -369,7 +373,7 @@ export class Scene3D {
       }
       if (id === DOCK_FOCUS) {
         if (!s.plan) return this.eph.stateOf(s.destId, d).pos;
-        const t = (d.getTime() - s.plan.depart.getTime()) / 1000;
+        const t = (s.timeMs - s.plan.depart.getTime()) / 1000;
         const ship = shipPosition(s.plan, t);
         const target = this.eph.stateOf(s.plan.destId, d).pos;
         return {

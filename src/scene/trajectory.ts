@@ -20,6 +20,15 @@ import { fmtDateTime, fmtDuration } from "../ui/format";
 export const TARGET_PATH_PTS = 48;
 /** samples along the route curve (cosine-spaced, dense at the endpoints) */
 const ROUTE_PTS = 128;
+/**
+ * Exact samples re-evaluated every frame in a window around the ship, sized
+ * to the screen. The precomputed polyline's chords can miss the true curve
+ * by thousands of pixels when zoomed close; near the ship the line must be
+ * the real curve at any zoom.
+ */
+const LOCAL_PTS = 24;
+/** max vertices per split line: full coarse set + local window + ship */
+const LINE_CAP = ROUTE_PTS + LOCAL_PTS + 2;
 const MAX_TICKS = 64;
 const TICK_LABELS = 8;
 /** route green as rgb components */
@@ -145,6 +154,8 @@ export class TrajectoryVisual {
   private expired = false;
   /** heliocentric route samples, cosine-spaced in time (dense at endpoints) */
   private routePts = new Float64Array(ROUTE_PTS * 3);
+  /** flight time of each coarse route sample, seconds */
+  private routeTimes = new Float64Array(ROUTE_PTS);
   /** heliocentric tick positions + their flight times */
   private tickPts = new Float64Array(MAX_TICKS * 3);
   private tickTimes = new Float64Array(MAX_TICKS);
@@ -156,11 +167,11 @@ export class TrajectoryVisual {
     this.flownGeo = new THREE.BufferGeometry();
     this.flownGeo.setAttribute(
       "position",
-      new THREE.BufferAttribute(new Float32Array((ROUTE_PTS + 1) * 3), 3)
+      new THREE.BufferAttribute(new Float32Array(LINE_CAP * 3), 3)
     );
     this.flownGeo.setAttribute(
       "color",
-      new THREE.BufferAttribute(new Float32Array((ROUTE_PTS + 1) * 3), 3)
+      new THREE.BufferAttribute(new Float32Array(LINE_CAP * 3), 3)
     );
     // Route lines are chart furniture: depthTest off so the screen-constant
     // ship hull (millions of km across at chase zoom) can't swallow them.
@@ -180,11 +191,11 @@ export class TrajectoryVisual {
     this.aheadGeo = new THREE.BufferGeometry();
     this.aheadGeo.setAttribute(
       "position",
-      new THREE.BufferAttribute(new Float32Array((ROUTE_PTS + 1) * 3), 3)
+      new THREE.BufferAttribute(new Float32Array(LINE_CAP * 3), 3)
     );
     this.aheadGeo.setAttribute(
       "lineDistance",
-      new THREE.BufferAttribute(new Float32Array(ROUTE_PTS + 1), 1)
+      new THREE.BufferAttribute(new Float32Array(LINE_CAP), 1)
     );
     this.aheadLine = new THREE.Line(
       this.aheadGeo,
@@ -298,6 +309,9 @@ export class TrajectoryVisual {
     this.tickBucket = Infinity; // force tick schedule rebuild
     if (plan) {
       samplePath(plan, ROUTE_PTS, this.routePts);
+      for (let i = 0; i < ROUTE_PTS; i++) {
+        this.routeTimes[i] = plan.travelTimeSec * samplePathFrac(i, ROUTE_PTS);
+      }
       const departMs = plan.depart.getTime();
       (this.flipLabel.element as HTMLDivElement).textContent =
         `flip · +${fmtDuration(plan.flipTimeSec)}`;
@@ -372,38 +386,68 @@ export class TrajectoryVisual {
     if (!plan || this.expired) return;
     const T = plan.travelTimeSec;
     const tSec = (timeMs - plan.depart.getTime()) / 1000;
-    const f = Math.min(Math.max(T === 0 ? 0 : tSec / T, 0), 1);
 
     // Split the route at the ship. The exact ship point is the shared
     // boundary vertex of both lines, so the seam is exact at any scrub
-    // position in either direction. Samples are cosine-spaced in time.
-    const k = samplePathIndex(f, ROUTE_PTS);
+    // position in either direction. Around the ship, a window of exact
+    // per-frame samples (sized to the screen) replaces the coarse polyline —
+    // its chords can miss the true curve by whole screens when zoomed close,
+    // which reads as the ship jittering off a kinked line.
     const src = this.routePts;
+    const times = this.routeTimes;
     const inFlight = tSec > 0 && tSec < T;
     const ship = inFlight ? shipPosition(plan, tSec) : null;
+    // Local window: a geometric time-ladder outward from the ship, from
+    // sub-pixel steps at the hull (so extreme zooms still see the true
+    // curve) to a T/8 horizon (so the multi-day drift bend that perspective
+    // compresses next to the ship is resolved too).
+    let t0 = 0;
+    let t1 = T;
+    let dtMin = 0;
+    const wide = T / 8;
+    if (ship) {
+      const vel = shipVelocity(plan, tSec);
+      const speed = Math.max(Math.hypot(vel.x, vel.y, vel.z), 1e-6);
+      dtMin = Math.max((kmPerPixelAt(ship) * 10) / speed, 0.25);
+      t0 = Math.max(0, tSec - wide);
+      t1 = Math.min(T, tSec + wide);
+    }
+    /** ladder offset j of LOCAL_PTS: log-spaced from ~dtMin out to wide */
+    const off = (j: number) =>
+      Math.exp(
+        Math.log(Math.min(dtMin, wide)) +
+          (Math.log(wide) - Math.log(Math.min(dtMin, wide))) * (j / LOCAL_PTS)
+      );
 
     const fPos = this.flownGeo.attributes.position as THREE.BufferAttribute;
     const fCol = this.flownGeo.attributes.color as THREE.BufferAttribute;
     const fArr = fPos.array as Float32Array;
     let flownCount = 0;
-    if (tSec >= T) flownCount = ROUTE_PTS;
-    else if (ship) flownCount = k + 2; // samples 0..k plus the ship point
+    const pushFlown = (x: number, y: number, z: number) => {
+      fArr[flownCount * 3] = x - originKm.x;
+      fArr[flownCount * 3 + 1] = y - originKm.y;
+      fArr[flownCount * 3 + 2] = z - originKm.z;
+      flownCount++;
+    };
+    if (tSec >= T) {
+      for (let i = 0; i < ROUTE_PTS; i++) {
+        pushFlown(src[i * 3], src[i * 3 + 1], src[i * 3 + 2]);
+      }
+    } else if (ship) {
+      for (let i = 0; i < ROUTE_PTS && times[i] < t0; i++) {
+        pushFlown(src[i * 3], src[i * 3 + 1], src[i * 3 + 2]);
+      }
+      for (let j = LOCAL_PTS; j >= 1; j--) {
+        const p = shipPosition(plan, Math.max(t0, tSec - off(j)));
+        pushFlown(p.x, p.y, p.z);
+      }
+      pushFlown(ship.x, ship.y, ship.z);
+    }
     if (flownCount > 0) {
-      const last = ship ? flownCount - 1 : flownCount;
-      for (let i = 0; i < (ship ? flownCount - 1 : flownCount); i++) {
-        fArr[i * 3] = src[i * 3] - originKm.x;
-        fArr[i * 3 + 1] = src[i * 3 + 1] - originKm.y;
-        fArr[i * 3 + 2] = src[i * 3 + 2] - originKm.z;
-      }
-      if (ship) {
-        fArr[(flownCount - 1) * 3] = ship.x - originKm.x;
-        fArr[(flownCount - 1) * 3 + 1] = ship.y - originKm.y;
-        fArr[(flownCount - 1) * 3 + 2] = ship.z - originKm.z;
-      }
       // brightness ramps from 0.25 at departure to 0.7 at the ship
       const cArr = fCol.array as Float32Array;
       for (let i = 0; i < flownCount; i++) {
-        const b = 0.25 + (0.45 * i) / Math.max(last, 1);
+        const b = 0.25 + (0.45 * i) / Math.max(flownCount - 1, 1);
         cArr[i * 3] = ROUTE_R * b;
         cArr[i * 3 + 1] = ROUTE_G * b;
         cArr[i * 3 + 2] = ROUTE_B * b;
@@ -417,24 +461,25 @@ export class TrajectoryVisual {
     const aPos = this.aheadGeo.attributes.position as THREE.BufferAttribute;
     const aArr = aPos.array as Float32Array;
     let aheadCount = 0;
+    const pushAhead = (x: number, y: number, z: number) => {
+      aArr[aheadCount * 3] = x - originKm.x;
+      aArr[aheadCount * 3 + 1] = y - originKm.y;
+      aArr[aheadCount * 3 + 2] = z - originKm.z;
+      aheadCount++;
+    };
     if (tSec <= 0) {
-      aheadCount = ROUTE_PTS;
       for (let i = 0; i < ROUTE_PTS; i++) {
-        aArr[i * 3] = src[i * 3] - originKm.x;
-        aArr[i * 3 + 1] = src[i * 3 + 1] - originKm.y;
-        aArr[i * 3 + 2] = src[i * 3 + 2] - originKm.z;
+        pushAhead(src[i * 3], src[i * 3 + 1], src[i * 3 + 2]);
       }
     } else if (ship) {
-      // ship point first, then the remaining samples
-      aArr[0] = ship.x - originKm.x;
-      aArr[1] = ship.y - originKm.y;
-      aArr[2] = ship.z - originKm.z;
-      aheadCount = 1;
-      for (let i = k + 1; i < ROUTE_PTS; i++) {
-        aArr[aheadCount * 3] = src[i * 3] - originKm.x;
-        aArr[aheadCount * 3 + 1] = src[i * 3 + 1] - originKm.y;
-        aArr[aheadCount * 3 + 2] = src[i * 3 + 2] - originKm.z;
-        aheadCount++;
+      pushAhead(ship.x, ship.y, ship.z);
+      for (let j = 1; j <= LOCAL_PTS; j++) {
+        const p = shipPosition(plan, Math.min(t1, tSec + off(j)));
+        pushAhead(p.x, p.y, p.z);
+      }
+      for (let i = 0; i < ROUTE_PTS; i++) {
+        if (times[i] <= t1) continue;
+        pushAhead(src[i * 3], src[i * 3 + 1], src[i * 3 + 2]);
       }
     }
     if (aheadCount > 0) {
