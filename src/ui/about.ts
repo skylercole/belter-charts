@@ -80,9 +80,11 @@ export function mountAbout(app: HTMLElement, trigger: HTMLElement) {
         planets, <b>9</b> Ceres, <b>0</b> Sol, <b>G</b> frame route,
         <b>space</b> play/pause.</p>
         <h4>Fine print</h4>
-        <p>Brachistochrone, constant thrust, flip at midpoint. Gravity and
-        orbital velocity ignored — negligible above ~0.1 g sustained. Planet
-        positions: astronomy-engine. Belt objects: JPL Horizons, 2340–2365.</p>
+        <p>Brachistochrone, constant thrust, flip at midpoint. Ships depart
+        with the origin's orbital velocity and arrive matching the
+        destination's, so slow burns fly visibly curved arcs. Gravity wells
+        ignored. Planet positions: astronomy-engine. Belt objects: JPL
+        Horizons, 2340–2365.</p>
       </div>
       <div class="about-credits">${mdToHtml(credits)}</div>
     </div>

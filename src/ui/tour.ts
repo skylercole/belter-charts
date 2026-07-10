@@ -59,9 +59,9 @@ const STEPS: TourStep[] = [
     side: "top",
   },
   {
-    targets: ["#epstein-btn", "#about-btn"],
+    targets: ["#story-btn", "#about-btn"],
     title: "Stories and fine print",
-    body: "Ride Solomon Epstein's last flight, or hit ⓘ for controls, credits — and to replay this tour.",
+    body: "Ride a canon story flight — Epstein's last burn, Miller's trip to Eros — or hit ⓘ for controls, credits, and to replay this tour.",
     side: "right",
   },
 ];

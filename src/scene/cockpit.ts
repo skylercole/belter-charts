@@ -8,7 +8,7 @@
  * vector, recycled when they fall behind. Length/opacity scale with v.
  */
 import * as THREE from "three";
-import { G0, type FlightPlan } from "../planner";
+import { shipVelocity, type FlightPlan } from "../planner";
 
 const STREAKS = 260;
 const SHELL_KM = 60; // streak field radius around the ship (fake scale)
@@ -90,20 +90,23 @@ export class Cockpit {
       camera.rotation.y += (Math.random() - 0.5) * 0.004 * shake;
     }
 
-    // velocity along chord
+    // velocity relative to the destination's frame
     const T = plan.travelTimeSec;
     const t = Math.min(Math.max((timeMs - plan.depart.getTime()) / 1000, 0), T);
-    const v = plan.accelG * G0 * Math.min(t, T - t); // km/s
+    const vel = shipVelocity(plan, t);
+    const relX = vel.x - plan.arriveVel.x;
+    const relY = vel.y - plan.arriveVel.y;
+    const relZ = vel.z - plan.arriveVel.z;
+    const v = Math.hypot(relX, relY, relZ); // km/s
     const vFrac = plan.vPeakKmS > 0 ? v / plan.vPeakKmS : 0;
 
-    // streaks: aligned to travel direction, moving aft; opacity with speed
-    const dir = new THREE.Vector3(
-      plan.arrivePos.x - plan.departPos.x,
-      plan.arrivePos.y - plan.departPos.y,
-      plan.arrivePos.z - plan.departPos.z
-    ).normalize();
-    const sign = t <= plan.flipTimeSec ? 1 : 1; // travel direction is constant
-    const len = SHELL_KM * (0.02 + 0.3 * vFrac) * sign;
+    // streaks: aligned to the relative-velocity direction, moving aft
+    const dir = new THREE.Vector3(relX, relY, relZ);
+    if (dir.lengthSq() < 1e-12) {
+      dir.set(plan.thrustAxis.x, plan.thrustAxis.y, plan.thrustAxis.z);
+    }
+    dir.normalize();
+    const len = SHELL_KM * (0.02 + 0.3 * vFrac);
     const drift = ((timeMs / 1000) * (0.2 + 2.5 * vFrac)) % 1;
     const attr = this.streakGeo.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < STREAKS; i++) {

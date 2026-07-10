@@ -1,13 +1,13 @@
 /**
  * The ship under way: hull + Epstein drive plume, screen-constant size.
- * Nose points along thrust: toward the destination while accelerating,
- * toward the origin while braking. Around the midpoint the drive cuts out
- * and the hull rotates 180° — the flip.
+ * Nose rides the drawn trajectory: along the path tangent while
+ * accelerating, tail-first into the approach while braking. Around the
+ * midpoint the drive cuts out and the hull rotates 180° — the flip.
  */
 import * as THREE from "three";
 import { SHIP_BY_ID } from "../data/ships";
 import type { Vec3 } from "../ephemeris/vec";
-import { shipPosition, type FlightPlan } from "../planner";
+import { shipPosition, shipVelocity, type FlightPlan } from "../planner";
 import { loadPackedMesh, tryLoadGlb } from "./loadmodel";
 import { paintShip } from "./skins";
 
@@ -164,7 +164,9 @@ export class ShipVisual {
     );
     const s = Math.max(sizePx * kmPerPixelAt(glidePos), this.realKmPerUnit);
     this.group.scale.setScalar(s);
-    this.orient(plan);
+    // at arrival the relative velocity has collapsed onto the thrust axis,
+    // so this holds the tail-first approach attitude
+    this.orient(plan, plan.travelTimeSec);
     this.group.quaternion.copy(this.qDecel);
     this.plume.visible = false;
     for (const [i, puff] of this.rcs.entries()) {
@@ -181,18 +183,45 @@ export class ShipVisual {
     }
   }
 
-  /** compute qAccel/qDecel from the plan chord */
-  private orient(plan: FlightPlan) {
-    const dir = new THREE.Vector3(
-      plan.arrivePos.x - plan.departPos.x,
-      plan.arrivePos.y - plan.departPos.y,
-      plan.arrivePos.z - plan.departPos.z
-    ).normalize();
-    this.qAccel.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
-    const perp = new THREE.Vector3(0, 0, 1).cross(dir);
-    if (perp.lengthSq() < 1e-9) perp.set(1, 0, 0);
-    perp.normalize();
-    this.qDecel.setFromAxisAngle(perp, Math.PI).multiply(this.qAccel);
+  /**
+   * Compute qAccel/qDecel at flight time tSec. The nose follows the drawn
+   * trajectory: while burning it points along the heliocentric velocity
+   * (the path's tangent); while braking the tail points along the
+   * destination-relative velocity, which converges on the thrust axis at
+   * dock — so the attitude eases into the docking approach instead of
+   * chasing the target's own orbital motion. The true thrust vector
+   * differs slightly (it includes the orbit-matching drift accel), a
+   * stylization in favor of the ship visibly riding its own rail.
+   */
+  private orient(plan: FlightPlan, tSec: number) {
+    const vel = shipVelocity(plan, tSec);
+    const dirAcc = new THREE.Vector3(vel.x, vel.y, vel.z);
+    if (dirAcc.lengthSq() < 1e-12) {
+      dirAcc.set(plan.thrustAxis.x, plan.thrustAxis.y, plan.thrustAxis.z);
+    }
+    dirAcc.normalize();
+    const dirDec = new THREE.Vector3(
+      plan.arriveVel.x - vel.x,
+      plan.arriveVel.y - vel.y,
+      plan.arriveVel.z - vel.z
+    );
+    if (dirDec.lengthSq() < 1e-12) {
+      dirDec.set(-plan.thrustAxis.x, -plan.thrustAxis.y, -plan.thrustAxis.z);
+    }
+    dirDec.normalize();
+    this.qAccel.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirAcc);
+    // The two attitudes are near-antipodal, so build the flip rotation
+    // explicitly about their cross product (setFromUnitVectors is
+    // ill-conditioned there) — this also keeps roll continuous through
+    // the flip. Fall back to a track-perpendicular axis.
+    const axis = new THREE.Vector3().crossVectors(dirAcc, dirDec);
+    if (axis.lengthSq() < 1e-12) {
+      axis.set(0, 0, 1).cross(dirAcc);
+      if (axis.lengthSq() < 1e-9) axis.set(1, 0, 0);
+    }
+    axis.normalize();
+    const angle = dirAcc.angleTo(dirDec);
+    this.qDecel.setFromAxisAngle(axis, angle).multiply(this.qAccel);
   }
 
   update(
@@ -216,9 +245,9 @@ export class ShipVisual {
     const s = Math.max(sizePx * kmPerPixelAt(pos), this.realKmPerUnit);
     this.group.scale.setScalar(s);
 
-    // Orientation: +Z nose along thrust direction; flip is a deterministic
-    // 180° about an axis perpendicular to the chord (see orient()).
-    this.orient(plan);
+    // Orientation: +Z nose rides the trajectory tangent; flip is a
+    // deterministic rotation between the burn and brake attitudes.
+    this.orient(plan, tSec);
 
     const w = Math.max(plan.travelTimeSec * FLIP_HALF_FRAC, 30);
     const phase = this.phase(plan, tSec);

@@ -27,11 +27,13 @@ import { Cockpit } from "./cockpit";
 import { CommLog } from "./commlog";
 import { FocusControls, SHIP_FOCUS } from "./controls";
 import { EPSTEIN_EPITAPH, EPSTEIN_SCRIPT } from "./epstein";
+import { MILLER_SCRIPT } from "./miller";
 import { RideHud } from "./hud";
 import { RideOverlays } from "./overlays";
 import { ShipVisual, type BurnPhase } from "./ship";
 import { EngineSound } from "./sound";
 import { TightbeamVisual } from "./tightbeam";
+import { TrafficVisual } from "./traffic";
 import { OrbitTrails } from "./trails";
 import { TARGET_PATH_PTS, TrajectoryVisual } from "./trajectory";
 
@@ -63,6 +65,7 @@ export class Scene3D {
   private commLog: CommLog;
   private cockpit: Cockpit;
   private trails: OrbitTrails;
+  private traffic: TrafficVisual;
   private attract: AttractMode;
   private sound = new EngineSound();
   private sunLight: THREE.PointLight;
@@ -143,6 +146,7 @@ export class Scene3D {
     this.commLog = new CommLog(container);
     this.cockpit = new Cockpit(this.scene, container);
     this.trails = new OrbitTrails(this.scene);
+    this.traffic = new TrafficVisual(this.scene, eph, container);
     this.attract = new AttractMode(this.controls, this.renderer.domElement);
     this.buildOrbitLines();
     this.bindDoubleClick();
@@ -174,15 +178,21 @@ export class Scene3D {
           while (skew < -Math.PI) skew += 2 * Math.PI;
           skew = Math.min(Math.max(skew, -0.26), 0.26);
           const theta = thetaTarget + skew;
+          // Miller's ride sits close to the vessel and high above the
+          // ecliptic — a top-and-side view of the transport, Epstein-style —
+          // instead of the far route-framing chart seat.
+          const miller = s.scenario === "miller";
           this.controls.setOrientation(
             Math.atan2(-Math.sin(theta), -Math.cos(theta)),
-            RIDE_SEAT_PITCH
+            miller ? 0.55 : RIDE_SEAT_PITCH
           );
           // High seat: far enough back that the route, its ellipses and the
           // inner system spread out below (the ship is screen-constant, so
           // it stays visible at any distance).
           this.controls.setDistTarget(
-            Math.min(Math.max(s.plan.distanceKm * RIDE_SEAT_DIST, 5e6), 1.8e8)
+            miller
+              ? 6e6
+              : Math.min(Math.max(s.plan.distanceKm * RIDE_SEAT_DIST, 5e6), 1.8e8)
           );
         }
         this.braceWarned = false;
@@ -190,6 +200,8 @@ export class Scene3D {
         this.lastShipPos = null;
         if (s.scenario === "epstein" && s.plan) {
           this.commLog.setCustomScript(s.plan, EPSTEIN_SCRIPT);
+        } else if (s.scenario === "miller" && s.plan) {
+          this.commLog.setCustomScript(s.plan, MILLER_SCRIPT);
         } else {
           this.commLog.setPlan(s.plan);
         }
@@ -217,6 +229,7 @@ export class Scene3D {
 
     this.resize(container);
     window.addEventListener("resize", () => this.resize(container));
+    if (import.meta.env.DEV) (window as unknown as { __scene3d: Scene3D }).__scene3d = this;
   }
 
   private resize(container: HTMLElement) {
@@ -351,11 +364,8 @@ export class Scene3D {
       }
       if (id === ROUTE_FOCUS) {
         if (!s.plan) return this.eph.stateOf(s.originId, d).pos;
-        return {
-          x: (s.plan.departPos.x + s.plan.arrivePos.x) / 2,
-          y: (s.plan.departPos.y + s.plan.arrivePos.y) / 2,
-          z: (s.plan.departPos.z + s.plan.arrivePos.z) / 2,
-        };
+        // flip point: the curve's natural midpoint
+        return shipPosition(s.plan, s.plan.flipTimeSec);
       }
       if (id === DOCK_FOCUS) {
         if (!s.plan) return this.eph.stateOf(s.destId, d).pos;
@@ -524,6 +534,17 @@ export class Scene3D {
     // Trails
     this.trails.update(this.eph, s.timeMs, s.speedDaysPerSec, s.playing, originKm);
 
+    // Ambient traffic (hidden in cockpit view)
+    this.traffic.update(
+      s.trafficOn,
+      s.honesty,
+      s.timeMs,
+      originKm,
+      this.camera,
+      this.controls.dist,
+      cockpitActive
+    );
+
     // Trajectory chord + flip marker
     if (s.plan !== this.lastPlan) {
       this.trajectory.setPlan(s.plan);
@@ -535,7 +556,7 @@ export class Scene3D {
       // Retire the overlay once the flight is well over — otherwise the
       // target visibly sails away from a stale chord and reads as a miss.
       this.trajectory.setExpired(tSec > s.plan.travelTimeSec + 6 * 3600 || !!this.dockAnim);
-      this.trajectory.update(originKm, kmPerPx);
+      this.trajectory.update(originKm, kmPerPx, s.timeMs, s.showTicks);
       // Mid-flight: the target's own future path to the intercept point.
       if (tSec > 0 && tSec < s.plan.travelTimeSec && this.eph.exists(s.plan.destId, date)) {
         const n = TARGET_PATH_PTS;
@@ -552,7 +573,7 @@ export class Scene3D {
         this.trajectory.updateTargetPath(this.targetPathScratch, 0, originKm);
       }
     } else {
-      this.trajectory.update(originKm, kmPerPx);
+      this.trajectory.update(originKm, kmPerPx, s.timeMs, s.showTicks);
     }
 
     // Ride bookkeeping: sound, brace warning, flip cue, g overlay, endings.
@@ -574,7 +595,9 @@ export class Scene3D {
         this.sound.flipCue();
         this.sound.creaks();
       }
-      const thrust = thrusting ? 0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1) : 0;
+      // Paused clock = frozen burn: the drive noise stops with it.
+      const thrust =
+        thrusting && s.playing ? 0.35 + 0.65 * Math.min(s.plan.accelG / 5, 1) : 0;
       this.sound.setThrust(thrust);
 
       // Docking view: braking makes the target angularly diverge from the
@@ -617,10 +640,12 @@ export class Scene3D {
           const mode = arrivalMode(destDef);
           // dock/land end against the hull/surface; orbit/hold stand off
           const endK = { dock: 1.15, land: 1.06, orbit: 2.2, hold: 1.6 }[mode];
+          // Approach side: the ship's terminal velocity (rel. destination)
+          // is along +thrustAxis, so it glides in from the -thrustAxis side.
           const back = {
-            x: s.plan.departPos.x - s.plan.arrivePos.x,
-            y: s.plan.departPos.y - s.plan.arrivePos.y,
-            z: s.plan.departPos.z - s.plan.arrivePos.z,
+            x: -s.plan.thrustAxis.x,
+            y: -s.plan.thrustAxis.y,
+            z: -s.plan.thrustAxis.z,
           };
           const bl = Math.hypot(back.x, back.y, back.z) || 1;
           const at = (k: number): Vec3 => ({

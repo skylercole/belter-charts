@@ -115,8 +115,12 @@ Running log of every modeling assumption, per Plan.md. Update as decisions land.
 
 ## Planner physics
 - Brachistochrone, constant thrust, flip at midpoint: t = 2*sqrt(d/a).
-- Straight-chord flight; gravity and origin/destination orbital velocities
-  ignored. Error negligible above ~0.1 g sustained (stated in UI footnote).
+- "Boosted brachistochrone" flight: the ship departs with the origin's
+  orbital velocity and arrives matching the destination's. The path is a
+  constant drift acceleration g = (v1-v0)/T plus the classic
+  accelerate/flip/decelerate law along a fixed thrust axis — constant total
+  thrust per phase, closed-form throughout. Gravity wells still ignored.
+  True |thrust| exceeds the displayed g by up to a few percent.
 - Moving-target intercept iterates until the time estimate changes by <60 s;
   converges in 3-5 iterations at these accelerations.
 - Flights whose arrival falls past 2365-01-01 (small-body data end) are

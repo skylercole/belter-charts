@@ -48,12 +48,12 @@ function routeScript(plan: FlightPlan): CommLine[] {
     ...(heavy
       ? [{ at: 0.004, text: "medical: juice administered. Try to breathe normal, sasa ke?" }]
       : []),
-    { at: 0.03, text: `nav: on the wire for ${dest}. Drive nominal.` },
-    { at: 0.25, text: "nav: quarter burn done. Coffee if you can lift the cup." },
-    { at: 0.46, text: "nav: flip in a few. Stow everything, ke?" },
-    { at: 0.485, text: "ALL HANDS: brace for flip. Drive going dark." },
-    { at: 0.515, text: "nav: flip complete. Tail-first, braking burn lit." },
-    { at: 0.75, text: `nav: three quarters. ${dest} traffic has our vector.` },
+    { at: 0.03, text: `nav: on the wire for ${dest}. Drive holding steady.` },
+    { at: 0.25, text: "nav: quarter of the burn behind us. All quiet." },
+    { at: 0.46, text: "nav: turnover coming up. Stow anything loose, ke?" },
+    { at: 0.485, text: "ALL HANDS: brace for flip." },
+    { at: 0.515, text: "nav: flip done. Tail-first, braking burn lit." },
+    { at: 0.75, text: `nav: three quarters in. ${dest} traffic has our vector.` },
     ...arrivalLines(arrivalMode(destDef), dest),
   ];
 }

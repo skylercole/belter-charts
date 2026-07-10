@@ -5,13 +5,17 @@
  */
 import { describe, expect, it } from "vitest";
 import { loadEphemerisFromDisk } from "../ephemeris/testutil";
-import { distance } from "../ephemeris/vec";
+import { add, distance, length, scale, sub, type Vec3 } from "../ephemeris/vec";
 import {
   brachistochrone,
   lightLag,
   planFlight,
   shipPosition,
+  shipVelocity,
+  thrustDir,
+  samplePath,
   G0,
+  type FlightPlan,
 } from "./index";
 
 const AU_KM = 149_597_870.7;
@@ -111,14 +115,138 @@ describe("light lag (Plan.md 5.4)", () => {
   });
 });
 
+/** Drift baseline point at time t: departPos + v0*t + g*t^2/2. */
+function driftAt(plan: FlightPlan, t: number): Vec3 {
+  const T = plan.travelTimeSec;
+  const g = scale(sub(plan.arriveVel, plan.departVel), 1 / T);
+  return add(add(plan.departPos, scale(plan.departVel, t)), scale(g, 0.5 * t * t));
+}
+
 describe("shipPosition profile", () => {
-  it("starts at origin, flips at half distance, ends at target", () => {
-    const plan = planFlight(eph, "earth", "ceres", new Date("2350-06-01"), 0.3);
-    const T = plan.travelTimeSec;
+  const plan = planFlight(eph, "earth", "ceres", new Date("2350-06-01"), 0.3);
+  const T = plan.travelTimeSec;
+
+  it("starts at origin, ends at target", () => {
     expect(distance(shipPosition(plan, 0), plan.departPos)).toBeLessThan(1);
     expect(distance(shipPosition(plan, T), plan.arrivePos)).toBeLessThan(1);
+  });
+
+  it("flip covers half the burn distance in the drift frame", () => {
+    const mid = sub(shipPosition(plan, plan.flipTimeSec), driftAt(plan, plan.flipTimeSec));
+    const along =
+      mid.x * plan.thrustAxis.x + mid.y * plan.thrustAxis.y + mid.z * plan.thrustAxis.z;
+    expect(along / plan.burnDistanceKm).toBeCloseTo(0.5, 6);
+    // No component off the thrust axis.
+    expect(length(mid) / along).toBeCloseTo(1, 9);
+  });
+});
+
+describe("curved trajectories (boosted brachistochrone)", () => {
+  const plan = planFlight(eph, "earth", "mars", new Date("2350-06-01"), 0.1 / 10); // canon-feel 0.1 g
+  const fast = planFlight(eph, "earth", "ceres", new Date("2350-06-01"), 1);
+  const T = plan.travelTimeSec;
+
+  it("endpoint velocities match the orbits", () => {
+    expect(length(sub(shipVelocity(plan, 0), plan.departVel))).toBeLessThan(1e-9);
+    expect(length(sub(shipVelocity(plan, T), plan.arriveVel))).toBeLessThan(1e-9);
+    // arriveVel is really the destination's orbital velocity at arrival.
+    const destVel = eph.stateOf("mars", plan.arrive).vel;
+    expect(length(sub(plan.arriveVel, destVel))).toBeLessThan(0.05);
+  });
+
+  it("arrival pins to the destination", () => {
+    const destAtArrival = eph.stateOf("mars", plan.arrive).pos;
+    expect(distance(destAtArrival, plan.arrivePos)).toBeLessThan(5_000);
+    expect(distance(shipPosition(plan, T), plan.arrivePos)).toBeLessThan(1);
+  });
+
+  it("shipVelocity is the derivative of shipPosition", () => {
+    const h = 1; // seconds
+    for (let i = 1; i < 10; i++) {
+      const t = (T * i) / 10;
+      const num = scale(sub(shipPosition(plan, t + h), shipPosition(plan, t - h)), 1 / (2 * h));
+      expect(length(sub(num, shipVelocity(plan, t)))).toBeLessThan(1e-3);
+    }
+  });
+
+  it("degenerate v0=v1=0 reduces to the straight chord", () => {
+    const still: FlightPlan = {
+      ...fast,
+      departVel: { x: 0, y: 0, z: 0 },
+      arriveVel: { x: 0, y: 0, z: 0 },
+    };
+    const chord = sub(still.arrivePos, still.departPos);
+    // Rebuild axis/burn for the frozen endpoints.
+    still.burnDistanceKm = length(chord);
+    still.thrustAxis = scale(chord, 1 / still.burnDistanceKm);
+    const accel = still.accelG * G0;
+    still.travelTimeSec = 2 * Math.sqrt(still.burnDistanceKm / accel);
+    still.flipTimeSec = still.travelTimeSec / 2;
+    for (let i = 0; i <= 10; i++) {
+      const t = (still.travelTimeSec * i) / 10;
+      const s =
+        t <= still.flipTimeSec
+          ? 0.5 * accel * t * t
+          : still.burnDistanceKm - 0.5 * accel * (still.travelTimeSec - t) ** 2;
+      const old = add(still.departPos, scale(still.thrustAxis, s));
+      expect(distance(shipPosition(still, t), old) / still.burnDistanceKm).toBeLessThan(1e-6);
+    }
+  });
+
+  it("speed profile along the thrust axis is symmetric and peaks at flip", () => {
+    const along = (t: number) => {
+      const v = shipVelocity(plan, t);
+      const g = scale(sub(plan.arriveVel, plan.departVel), 1 / T);
+      const drift = add(plan.departVel, scale(g, t));
+      const r = sub(v, drift);
+      return r.x * plan.thrustAxis.x + r.y * plan.thrustAxis.y + r.z * plan.thrustAxis.z;
+    };
+    for (const f of [0.1, 0.25, 0.4]) {
+      expect(along(T * f)).toBeCloseTo(along(T * (1 - f)), 6);
+    }
+    expect(along(plan.flipTimeSec)).toBeCloseTo(plan.vPeakKmS, 6);
+  });
+
+  it("arc length is sane", () => {
+    for (const p of [plan, fast]) {
+      const pts = samplePath(p, 129);
+      let arc = 0;
+      let prev = 0;
+      for (let i = 3; i < pts.length; i += 3) {
+        const seg = Math.hypot(pts[i] - pts[i - 3], pts[i + 1] - pts[i - 2], pts[i + 2] - pts[i - 1]);
+        expect(seg).toBeGreaterThanOrEqual(0);
+        arc += seg;
+        prev = seg;
+      }
+      void prev;
+      expect(arc).toBeGreaterThan(p.distanceKm * 0.999);
+      expect(arc).toBeLessThan(p.distanceKm * 1.25);
+      expect(p.arcLengthKm).toBeCloseTo(arc, 3);
+    }
+  });
+
+  it("slow canon-mode flight visibly curves off the chord", () => {
     const mid = shipPosition(plan, T / 2);
-    const distToMid = distance(mid, plan.departPos);
-    expect(distToMid / plan.distanceKm).toBeCloseTo(0.5, 3);
+    const chordMid = scale(add(plan.departPos, plan.arrivePos), 0.5);
+    const dev = distance(mid, chordMid);
+    expect(dev).toBeGreaterThan(1e5);
+    expect(dev).toBeLessThan(0.2 * plan.distanceKm);
+  });
+
+  it("slow-drive intercepts still converge", () => {
+    const p = planFlight(eph, "earth", "eros", new Date("2351-04-01"), 0.3 / 10);
+    expect(p.iterations).toBeLessThanOrEqual(15);
+    const destAtArrival = eph.stateOf("eros", p.arrive).pos;
+    expect(distance(destAtArrival, p.arrivePos)).toBeLessThan(5_000);
+  });
+
+  it("thrustDir is constant per phase and near-antipodal across the flip", () => {
+    const dot = (a: Vec3, b: Vec3) => a.x * b.x + a.y * b.y + a.z * b.z;
+    const d0 = thrustDir(plan, 0);
+    expect(dot(d0, thrustDir(plan, plan.flipTimeSec * 0.9))).toBeCloseTo(1, 9);
+    const d1 = thrustDir(plan, T);
+    expect(dot(d1, thrustDir(plan, plan.flipTimeSec * 1.1))).toBeCloseTo(1, 9);
+    expect(dot(d0, plan.thrustAxis)).toBeGreaterThan(0.9);
+    expect(dot(d0, d1)).toBeLessThan(-0.9);
   });
 });

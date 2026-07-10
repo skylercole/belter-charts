@@ -25,12 +25,14 @@ export function epsteinPlan(eph: Ephemeris, depart: Date): FlightPlan {
   const accel = EPSTEIN_G * G0;
   // Encode as a brachistochrone whose midpoint (flip) is the fuel-out
   // moment: for t <= flip the position law 0.5*a*t^2 matches exactly.
+  // The yacht keeps Mars's orbital velocity as its drift baseline
+  // (departVel = arriveVel = mars.vel, so the drift accel g is zero).
   const T = 2 * EPSTEIN_BURN_SEC;
   const d = accel * EPSTEIN_BURN_SEC * EPSTEIN_BURN_SEC; // a*(T/2)^2... times 1
   const arrivePos = {
-    x: mars.pos.x + dir.x * d,
-    y: mars.pos.y + dir.y * d,
-    z: mars.pos.z + dir.z * d,
+    x: mars.pos.x + mars.vel.x * T + dir.x * d,
+    y: mars.pos.y + mars.vel.y * T + dir.y * d,
+    z: mars.pos.z + mars.vel.z * T + dir.z * d,
   };
   return {
     originId: "mars",
@@ -44,6 +46,11 @@ export function epsteinPlan(eph: Ephemeris, depart: Date): FlightPlan {
     vPeakKmS: accel * EPSTEIN_BURN_SEC,
     departPos: mars.pos,
     arrivePos,
+    departVel: mars.vel,
+    arriveVel: mars.vel,
+    thrustAxis: dir,
+    burnDistanceKm: d,
+    arcLengthKm: d,
     lightLagSec: 0,
     iterations: 0,
   };
@@ -51,7 +58,7 @@ export function epsteinPlan(eph: Ephemeris, depart: Date): FlightPlan {
 
 export const EPSTEIN_SCRIPT: CommLine[] = [
   { at: 0.0005, text: "Solomon: drive modification test, take one. Easy little burn." },
-  { at: 0.004, text: "Solomon: ...that's not a little burn. Efficiency is off the chart." },
+  { at: 0.004, text: "Solomon: ...that's not a little burn. These efficiency numbers can't be right." },
   { at: 0.02, text: "Solomon: can't lift my arm to the cutoff. G is climbing." },
   { at: 0.08, text: "yacht: crew health warning. Sustained high-g. No response." },
   { at: 0.18, text: "Mars traffic: unregistered burn, respond. ...Respond." },

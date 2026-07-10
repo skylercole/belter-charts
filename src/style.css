@@ -26,6 +26,7 @@ body,
 /* ---- nav rail ---- */
 #nav-rail {
   position: absolute;
+  z-index: 2; /* above the CSS2D label layer */
   top: 16px;
   right: 16px;
   width: 96px;
@@ -159,6 +160,61 @@ body,
   color: #ffd27d;
   text-shadow: 0 0 4px #000;
   white-space: nowrap;
+}
+
+/* route time ticks + markers */
+.traj-tick-label {
+  font-family: ui-monospace, monospace;
+  font-size: 9px;
+  color: #7fd4a8;
+  opacity: 0.6;
+  text-shadow: 0 0 4px #000;
+  white-space: nowrap;
+  transform: translateY(-10px);
+}
+.traj-tick-label.flown {
+  opacity: 0.3;
+}
+.traj-marker-label {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: #7fd4a8;
+  opacity: 0.8;
+  text-shadow: 0 0 4px #000;
+  white-space: nowrap;
+}
+.traj-marker-label.amber {
+  color: #ffd27d;
+}
+/* declutter the route furniture while riding */
+.label-layer.riding .traj-tick-label,
+.label-layer.riding .traj-marker-label {
+  display: none;
+}
+
+/* ambient traffic toggle in the timebar */
+#timebar #traffic-btn {
+  width: auto;
+  padding: 0 10px;
+  font-size: 11px;
+  white-space: nowrap;
+  color: #9db4c8;
+}
+#timebar #traffic-btn.off {
+  color: #55637a;
+}
+
+/* ambient traffic hover label */
+.traffic-label {
+  position: absolute;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: #9db4c8;
+  text-shadow: 0 0 4px #000;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+  transform: translate(10px, -50%);
 }
 
 /* ---- nav console additions ---- */
@@ -309,6 +365,60 @@ button.primary.ride:hover {
   font: inherit;
   font-size: 11px;
   cursor: pointer;
+}
+
+#traffic-panel-btn {
+  white-space: nowrap;
+}
+#traffic-panel-btn.off {
+  color: #55637a;
+}
+
+/* story flights popover */
+.story-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+/* the button's hover tooltip would overlap the opened menu — suppress it */
+.story-wrap:has(.story-menu:not(.hidden)) #story-btn::after {
+  display: none;
+}
+.story-wrap .tool-btn {
+  flex: 1;
+}
+.story-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  width: max-content;
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: rgba(10, 14, 24, 0.98);
+  border: 1px solid #24354f;
+  border-radius: 6px;
+  padding: 4px;
+  z-index: 30;
+}
+.story-menu.hidden {
+  display: none;
+}
+.story-menu button {
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: #9fc3e0;
+  text-align: left;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.story-menu button:hover {
+  background: #16233a;
+  color: #cde4f5;
 }
 .tool-btn:hover { border-color: #3a628f; color: #b8d8f0; }
 .tool-btn.wide { flex: 1; text-align: left; }
@@ -659,6 +769,9 @@ button.primary.ride:hover {
 /* ---- planner panel ---- */
 #panel {
   position: absolute;
+  /* above the CSS2D label layer (z-index 1) so floating body labels
+     can never intercept clicks on panel controls */
+  z-index: 2;
   top: 16px;
   left: 16px;
   width: 280px;
@@ -780,6 +893,7 @@ button.primary:hover {
 /* ---- timebar ---- */
 #timebar {
   position: absolute;
+  z-index: 2; /* above the CSS2D label layer */
   left: 16px;
   right: 16px;
   bottom: 16px;

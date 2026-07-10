@@ -1,6 +1,6 @@
 /** Ride-the-burn HUD: phase, velocity, g, progress, cockpit/mute/exit. */
 import type { FlightPlan } from "../planner";
-import { G0 } from "../planner";
+import { shipVelocity } from "../planner";
 import { arrivalMode, BODY_BY_ID } from "../data/bodies";
 import type { ArrivalMode } from "../data/bodies";
 import { fmtDuration, fmtVelocity } from "../ui/format";
@@ -71,7 +71,7 @@ export class RideHud {
     plan: FlightPlan | null,
     timeMs: number,
     phase: BurnPhase,
-    scenario: "epstein" | null,
+    scenario: "epstein" | "miller" | null,
     cockpit: boolean
   ) {
     this.root.classList.toggle("hidden", !visible);
@@ -82,8 +82,14 @@ export class RideHud {
     // to the pseudo-flip (fuel exhaustion); progress runs against that.
     const T = epstein ? plan.flipTimeSec : plan.travelTimeSec;
     const t = Math.min(Math.max((timeMs - plan.depart.getTime()) / 1000, 0), T);
-    const accel = plan.accelG * G0;
-    const v = epstein ? accel * t : accel * Math.min(t, plan.travelTimeSec - t);
+    // Speed relative to the destination: starts at |v0-v1|, peaks near the
+    // flip, and still hits zero at dock. (Epstein: reduces to accel*t.)
+    const vel = shipVelocity(plan, t);
+    const v = Math.hypot(
+      vel.x - plan.arriveVel.x,
+      vel.y - plan.arriveVel.y,
+      vel.z - plan.arriveVel.z
+    );
 
     this.phaseEl.textContent =
       epstein && phase === "burn"

@@ -14,6 +14,8 @@ export interface ShareState {
   accelG: number;
   honesty: "honest" | "canon";
   timeMs: number;
+  /** traffic layer off; absent = on (the default) */
+  traffic?: "off";
 }
 
 export function buildShareUrl(s: AppState): string {
@@ -25,6 +27,7 @@ export function buildShareUrl(s: AppState): string {
     mode: s.honesty,
     t: new Date(s.plan?.depart.getTime() ?? s.timeMs).toISOString().slice(0, 16),
   });
+  if (!s.trafficOn) p.set("traffic", "off");
   return `${location.origin}${location.pathname}?${p}`;
 }
 
@@ -52,5 +55,6 @@ export function parseShareUrl(search: string): ShareState | null {
     accelG: g,
     honesty: mode,
     timeMs: Number.isFinite(t) ? t : Date.UTC(2350, 0, 1),
+    traffic: p.get("traffic") === "off" ? "off" : undefined,
   };
 }

@@ -9,10 +9,13 @@ import {
   G0,
   lightLag,
   planFlight,
+  shipVelocity,
 } from "../planner";
 import { track } from "../analytics";
 import { buildShareUrl } from "./share";
 import { epsteinPlan, EPSTEIN_BURN_SEC } from "../scene/epstein";
+import { MILLER_G, millerPlan } from "../scene/miller";
+import type { FlightPlan } from "../planner";
 import {
   fmtAu,
   fmtDate,
@@ -61,6 +64,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     <div class="result-actions">
       <button id="ride-btn" class="primary ride hidden">▶ Ride the burn</button>
       <button id="share-btn" class="ghost hidden" data-tip="copy a link to this exact plan" data-tip-pos="left">⧉ share</button>
+      <button id="ticks-btn" class="ghost hidden" data-tip="time-tick markers along the route" data-tip-pos="left">✓ ticks</button>
     </div>
 
     <div class="lag-row">
@@ -71,7 +75,14 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     <div id="result" class="result"></div>
 
     <div class="tool-row">
-      <button id="epstein-btn" class="tool-btn wide" data-tip="story mode: ride the first Epstein burn" data-tip-pos="right">☄ Epstein's last flight</button>
+      <div class="story-wrap">
+        <button id="story-btn" class="tool-btn wide" data-tip="story flights: ride a canon scenario" data-tip-pos="right">☄ Stories ▾</button>
+        <div id="story-menu" class="story-menu hidden">
+          <button data-story="epstein">☄ Epstein's last flight</button>
+          <button data-story="miller">◍ Miller's ride to Eros</button>
+        </div>
+      </div>
+      <button id="traffic-panel-btn" class="tool-btn" data-tip="toggle ambient system traffic" data-tip-pos="left" aria-label="toggle ambient system traffic"></button>
       <button id="about-btn" class="tool-btn" data-tip="about, credits &amp; controls" data-tip-pos="left" aria-label="about, credits and controls">ⓘ</button>
       <button id="feedback-btn" class="tool-btn" data-tip="send feedback" data-tip-pos="left" aria-label="send feedback">✉</button>
     </div>
@@ -93,8 +104,25 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
   const shareBtn = root.querySelector<HTMLButtonElement>("#share-btn")!;
   const beamBtn = root.querySelector<HTMLButtonElement>("#beam-btn")!;
   const rideBtn = root.querySelector<HTMLButtonElement>("#ride-btn")!;
+  const ticksBtn = root.querySelector<HTMLButtonElement>("#ticks-btn")!;
   const lagEl = root.querySelector<HTMLDivElement>("#lag")!;
   const resultEl = root.querySelector<HTMLDivElement>("#result")!;
+
+  ticksBtn.addEventListener("click", () => {
+    store.getState().toggleTicks();
+    ticksBtn.textContent = store.getState().showTicks ? "✓ ticks" : "· ticks";
+  });
+
+  const trafficPanelBtn = root.querySelector<HTMLButtonElement>("#traffic-panel-btn")!;
+  trafficPanelBtn.addEventListener("click", () => {
+    const s = store.getState();
+    s.setTraffic(!s.trafficOn);
+  });
+  function renderTraffic() {
+    const on = store.getState().trafficOn;
+    trafficPanelBtn.textContent = on ? "⋮ traffic on" : "⋮ traffic off";
+    trafficPanelBtn.classList.toggle("off", !on);
+  }
 
   ship.value = store.getState().shipId;
   origin.value = store.getState().originId;
@@ -185,17 +213,54 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     track("ride-started");
   });
 
-  root.querySelector<HTMLButtonElement>("#epstein-btn")!.addEventListener("click", () => {
+  // Story flights menu: canon scenarios grouped under one button.
+  const storyBtn = root.querySelector<HTMLButtonElement>("#story-btn")!;
+  const storyMenu = root.querySelector<HTMLDivElement>("#story-menu")!;
+  storyBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    storyMenu.classList.toggle("hidden");
+  });
+  document.addEventListener("click", () => storyMenu.classList.add("hidden"));
+
+  /** common ride kickoff: engage a scenario plan and start the clock */
+  function startScenario(plan: FlightPlan, scenario: "epstein" | "miller", speed: number) {
     const s = store.getState();
-    const plan = epsteinPlan(eph, new Date(s.timeMs));
     s.setPlan(plan);
-    s.setScenario("epstein");
+    s.setScenario(scenario);
     s.setTime(plan.depart.getTime());
-    // 37 h of burn over ~40 s of wall time
-    s.setSpeed(EPSTEIN_BURN_SEC / 86_400 / 40);
+    s.setSpeed(speed);
     s.setPlaying(true);
     s.setRide(true);
-    track("epstein-flight");
+  }
+
+  storyMenu.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-story]");
+    if (!btn) return;
+    storyMenu.classList.add("hidden");
+    const s = store.getState();
+    if (btn.dataset.story === "epstein") {
+      // 37 h of burn over ~40 s of wall time
+      startScenario(epsteinPlan(eph, new Date(s.timeMs)), "epstein", EPSTEIN_BURN_SEC / 86_400 / 40);
+      track("epstein-flight");
+    } else {
+      // Ceres -> Eros, docking as the incident begins; ride pacing matches
+      // the normal ride button (quick hops ~30 s, long hauls ~2.5 min).
+      try {
+        const plan = millerPlan(eph, s.honesty);
+        // sync the console so the result card matches the flight
+        s.setOrigin("ceres");
+        s.setDest("eros");
+        s.setAccel(MILLER_G);
+        origin.value = "ceres";
+        dest.value = "eros";
+        const days = plan.travelTimeSec / 86_400;
+        startScenario(plan, "miller", days / Math.min(Math.max(days * 9, 30), 150));
+        track("miller-flight");
+      } catch {
+        resultEl.classList.add("error");
+        resultEl.textContent = "Couldn't plan Miller's ride on this ephemeris.";
+      }
+    }
   });
 
   shareBtn.addEventListener("click", async () => {
@@ -252,17 +317,29 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     const { plan } = s;
     rideBtn.classList.toggle("hidden", !plan);
     shareBtn.classList.toggle("hidden", !plan);
+    ticksBtn.classList.toggle("hidden", !plan);
     if (!plan) {
       resultEl.innerHTML = "";
       return;
     }
-    // Both truths, side by side (Plan.md 5.5): the same chord flown at the
-    // stated g and at canon-feel g/10. Times scale by sqrt(10).
-    const honestT = brachistochrone(plan.distanceKm, s.accelG * G0).t;
-    const canonT = brachistochrone(
-      plan.distanceKm,
-      (s.accelG / CANON_ACCEL_DIVISOR) * G0
-    ).t;
+    // Both truths, side by side (Plan.md 5.5): the same route flown at the
+    // stated g and at canon-feel g/10. Re-planned per mode so the moving
+    // target and orbital velocities are accounted for exactly; falls back
+    // to the chord approximation if a re-plan runs off the ephemeris.
+    const timeFor = (accelG: number): number => {
+      if (plan.originId === plan.destId) {
+        // scenario pseudo-plans (Epstein): no real intercept to re-plan
+        return brachistochrone(plan.distanceKm, accelG * G0).t;
+      }
+      try {
+        return planFlight(eph, plan.originId, plan.destId, plan.depart, accelG)
+          .travelTimeSec;
+      } catch {
+        return brachistochrone(plan.distanceKm, accelG * G0).t;
+      }
+    };
+    const honestT = timeFor(s.accelG);
+    const canonT = timeFor(s.accelG / CANON_ACCEL_DIVISOR);
     resultEl.innerHTML = `
       <div class="row"><span>departure</span><b>${fmtDate(plan.depart.getTime())}</b></div>
       <div class="row honesty-compare">
@@ -276,14 +353,39 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
       <div class="row"><span>distance</span><b>${fmtAu(plan.distanceKm)}</b></div>
       <div class="row"><span>peak velocity</span><b>${fmtVelocity(plan.vPeakKmS)}</b></div>
       <div class="row"><span>burn</span><b>${s.accelG} g ${s.honesty === "canon" ? "(canon feel)" : "stated"}</b></div>
+      <div class="row progress-row hidden" id="plan-progress"></div>
     `;
+    renderProgress();
+  }
+
+  /** En-route readout: progress %, live velocity rel. destination. */
+  function renderProgress() {
+    const s = store.getState();
+    const el = resultEl.querySelector<HTMLDivElement>("#plan-progress");
+    if (!el || !s.plan) return;
+    const tSec = (s.timeMs - s.plan.depart.getTime()) / 1000;
+    const T = s.plan.travelTimeSec;
+    if (tSec <= 0 || tSec >= T) {
+      el.classList.add("hidden");
+      return;
+    }
+    el.classList.remove("hidden");
+    const vel = shipVelocity(s.plan, tSec);
+    const v = Math.hypot(
+      vel.x - s.plan.arriveVel.x,
+      vel.y - s.plan.arriveVel.y,
+      vel.z - s.plan.arriveVel.z
+    );
+    el.innerHTML = `<span>en route</span><b>${((100 * tSec) / T).toFixed(0)}% · ${fmtVelocity(v)}</b>`;
   }
 
   let lastLagRender = 0;
+  let lastProgressWall = 0;
   store.subscribe((s, prev) => {
     if (s.accelG !== prev.accelG || s.shipId !== prev.shipId) renderShip();
     if (s.honesty !== prev.honesty) renderHonesty();
     if (s.plan !== prev.plan) renderResult();
+    if (s.trafficOn !== prev.trafficOn) renderTraffic();
     if (
       s.originId !== prev.originId ||
       s.destId !== prev.destId ||
@@ -292,10 +394,16 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
       lastLagRender = s.timeMs;
       renderLag();
     }
+    // en-route row tracks the clock; throttle DOM writes to ~2/s
+    if (s.plan && s.timeMs !== prev.timeMs && performance.now() - lastProgressWall > 500) {
+      lastProgressWall = performance.now();
+      renderProgress();
+    }
   });
 
   renderShip();
   renderHonesty();
   renderLag();
   renderResult();
+  renderTraffic();
 }

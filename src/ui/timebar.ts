@@ -17,12 +17,19 @@ export function mountTimebar(root: HTMLElement) {
     </select>
     <input id="scrub" type="range" min="${ERA_START_MS}" max="${ERA_END_MS}" step="3600000" />
     <span id="clock"></span>
+    <button id="traffic-btn" data-tip="toggle ambient system traffic (Miller's plot)" data-tip-pos="left" aria-label="toggle traffic"></button>
   `;
 
   const play = root.querySelector<HTMLButtonElement>("#play")!;
   const speed = root.querySelector<HTMLSelectElement>("#speed")!;
   const scrub = root.querySelector<HTMLInputElement>("#scrub")!;
   const clock = root.querySelector<HTMLSpanElement>("#clock")!;
+  const trafficBtn = root.querySelector<HTMLButtonElement>("#traffic-btn")!;
+
+  trafficBtn.addEventListener("click", () => {
+    const s = store.getState();
+    s.setTraffic(!s.trafficOn);
+  });
 
   speed.value = String(store.getState().speedDaysPerSec);
 
@@ -45,6 +52,8 @@ export function mountTimebar(root: HTMLElement) {
     play.textContent = s.playing ? "❚❚" : "▶";
     scrub.value = String(s.timeMs);
     clock.textContent = fmtDateTime(s.timeMs) + " XTE";
+    trafficBtn.textContent = s.trafficOn ? "⋮ traffic on" : "⋮ traffic off";
+    trafficBtn.classList.toggle("off", !s.trafficOn);
   }
 
   store.subscribe(render);

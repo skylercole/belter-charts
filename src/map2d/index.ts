@@ -9,7 +9,7 @@ import { BODIES, type BodyDef } from "../data/bodies";
 import type { Ephemeris } from "../ephemeris";
 import { sampleOrbitPath, type OrbitPath } from "../ephemeris/orbitpath";
 import { dateToJd } from "../ephemeris/time";
-import { shipPosition, type FlightPlan } from "../planner";
+import { samplePath, shipPosition, type FlightPlan } from "../planner";
 
 const AU_KM = 149_597_870.7;
 const ORBIT_SAMPLES = 360;
@@ -198,19 +198,21 @@ export class Map2D {
 
   private renderPlan(plan: FlightPlan, timeMs: number) {
     const ctx = this.ctx;
-    const [x0, y0] = this.kmToScreen(plan.departPos.x, plan.departPos.y);
-    const [x1, y1] = this.kmToScreen(plan.arrivePos.x, plan.arrivePos.y);
+    const pts = samplePath(plan, 48);
 
     ctx.strokeStyle = "#7fd4a8";
     ctx.lineWidth = 1.5;
     ctx.setLineDash([6, 4]);
     ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x1, y1);
+    for (let i = 0; i < 48; i++) {
+      const [x, y] = this.kmToScreen(pts[i * 3], pts[i * 3 + 1]);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Flip point: midpoint of the chord.
+    // Flip point: the curve's midpoint in time.
     const flip = shipPosition(plan, plan.flipTimeSec);
     const [fx, fy] = this.kmToScreen(flip.x, flip.y);
     ctx.strokeStyle = "#ffd27d";

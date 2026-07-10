@@ -20,12 +20,16 @@ export interface AppState {
   /** first-person view while riding */
   cockpit: boolean;
   /** active story scenario */
-  scenario: "epstein" | null;
+  scenario: "epstein" | "miller" | null;
   /** tightbeam pulse in flight: sim time it left the origin */
   beamStartMs: number | null;
   muted: boolean;
   /** onboarding spotlight tour is on screen */
   tourOpen: boolean;
+  /** time-tick markers along the planned route */
+  showTicks: boolean;
+  /** ambient system traffic layer */
+  trafficOn: boolean;
 
   setTime(ms: number): void;
   togglePlaying(): void;
@@ -39,11 +43,13 @@ export interface AppState {
   setPlan(plan: FlightPlan | null): void;
   setRide(r: boolean): void;
   setCockpit(c: boolean): void;
-  setScenario(s: "epstein" | null): void;
+  setScenario(s: "epstein" | "miller" | null): void;
   fireBeam(): void;
   clearBeam(): void;
   toggleMuted(): void;
   setTourOpen(v: boolean): void;
+  toggleTicks(): void;
+  setTraffic(on: boolean): void;
 }
 
 /** Era the UI can scrub; matches the packed small-body coverage with margin. */
@@ -68,6 +74,8 @@ export const store = createStore<AppState>()((set) => ({
   beamStartMs: null,
   muted: false,
   tourOpen: false,
+  showTicks: true,
+  trafficOn: true,
 
   setTime: (ms) =>
     set({ timeMs: Math.min(Math.max(ms, ERA_START_MS), ERA_END_MS) }),
@@ -87,4 +95,6 @@ export const store = createStore<AppState>()((set) => ({
   clearBeam: () => set({ beamStartMs: null }),
   toggleMuted: () => set((s) => ({ muted: !s.muted })),
   setTourOpen: (v) => set({ tourOpen: v }),
+  toggleTicks: () => set((s) => ({ showTicks: !s.showTicks })),
+  setTraffic: (on) => set({ trafficOn: on }),
 }));

@@ -71,6 +71,7 @@ async function boot() {
     s.setAccel(shared.accelG);
     s.setHonesty(shared.honesty);
     s.setTime(shared.timeMs);
+    if (shared.traffic === "off") s.setTraffic(false);
   }
 
   mountPanel(document.getElementById("panel")!, eph);
