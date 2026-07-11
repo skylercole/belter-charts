@@ -370,13 +370,6 @@ button.primary.ride:hover {
   cursor: pointer;
 }
 
-#traffic-panel-btn {
-  white-space: nowrap;
-}
-#traffic-panel-btn.off {
-  color: #55637a;
-}
-
 /* story flights popover */
 .story-wrap {
   position: relative;

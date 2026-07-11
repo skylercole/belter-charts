@@ -89,9 +89,6 @@ export function mountPanel(
         <button id="spoiler-btn" class="tool-btn" data-tip="spoiler gate: events &amp; stories past the last book you've read stay hidden" data-tip-pos="left" aria-label="set how far you have read"></button>
         <div id="spoiler-menu" class="story-menu hidden"></div>
       </div>
-    </div>
-    <div class="tool-row">
-      <button id="traffic-panel-btn" class="tool-btn wide" data-tip="toggle ambient system traffic" data-tip-pos="right" aria-label="toggle ambient system traffic"></button>
       <button id="about-btn" class="tool-btn" data-tip="about, credits &amp; controls" data-tip-pos="left" aria-label="about, credits and controls">ⓘ</button>
       <button id="feedback-btn" class="tool-btn" data-tip="send feedback" data-tip-pos="left" aria-label="send feedback">✉</button>
     </div>
@@ -122,17 +119,6 @@ export function mountPanel(
     store.getState().toggleTicks();
     ticksBtn.textContent = store.getState().showTicks ? "✓ ticks" : "· ticks";
   });
-
-  const trafficPanelBtn = root.querySelector<HTMLButtonElement>("#traffic-panel-btn")!;
-  trafficPanelBtn.addEventListener("click", () => {
-    const s = store.getState();
-    s.setTraffic(!s.trafficOn);
-  });
-  function renderTraffic() {
-    const on = store.getState().trafficOn;
-    trafficPanelBtn.textContent = on ? "⋮ traffic on" : "⋮ traffic off";
-    trafficPanelBtn.classList.toggle("off", !on);
-  }
 
   ship.value = store.getState().shipId;
   origin.value = store.getState().originId;
@@ -458,7 +444,6 @@ export function mountPanel(
     if (s.accelG !== prev.accelG || s.shipId !== prev.shipId) renderShip();
     if (s.honesty !== prev.honesty) renderHonesty();
     if (s.plan !== prev.plan) renderResult();
-    if (s.trafficOn !== prev.trafficOn) renderTraffic();
     if (s.spoilerBook !== prev.spoilerBook) renderSpoilerBtn();
     if (
       s.originId !== prev.originId ||
@@ -479,6 +464,5 @@ export function mountPanel(
   renderHonesty();
   renderLag();
   renderResult();
-  renderTraffic();
   renderSpoilerBtn();
 }
