@@ -94,7 +94,8 @@ export function mountPanel(
       <b>WASD</b>+<b>R/F</b> fly (<b>⇧</b> boost) · drag aim ·
       <b>r-drag</b> pan · <b>←→↑↓</b> orbit/zoom · <b>Q/E</b> pitch<br />
       <b>H</b> home · <b>[ ]</b> cycle · <b>1–9 0</b> bodies ·
-      <b>G</b> route · <b>space</b> play · click body = fly to it
+      <b>G</b> route · <b>Z</b> ship close-up · <b>V</b> route ahead ·
+      <b>space</b> play · click body = fly to it
     </p>
   `;
 

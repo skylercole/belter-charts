@@ -13,6 +13,7 @@ import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { track } from "../analytics";
 import { arrivalMode, BODIES, BODY_BY_ID } from "../data/bodies";
 import type { ArrivalMode } from "../data/bodies";
+import { SHIP_BY_ID } from "../data/ships";
 import type { Ephemeris } from "../ephemeris";
 import { sampleOrbitPath, type OrbitPath } from "../ephemeris/orbitpath";
 import { dateToJd } from "../ephemeris/time";
@@ -214,8 +215,13 @@ export class Scene3D {
         } else {
           this.commLog.setPlan(s.plan);
         }
-        if (s.accelG > 2) {
-          this.overlays.flash("JUICE ADMINISTERED", "juice");
+        // High-g cue keys off the plan too: scenario pseudo-plans (Epstein)
+        // burn hard without ever touching the console's stated g.
+        if (Math.max(s.accelG, s.plan?.accelG ?? 0) > 2) {
+          this.overlays.flash(
+            this.rideStory?.launchFlash ?? "JUICE ADMINISTERED",
+            "juice"
+          );
           this.sound.heartbeat();
         }
       }
@@ -294,6 +300,38 @@ export class Scene3D {
     if (!plan) return false;
     this.controls.focus(ROUTE_FOCUS);
     this.controls.setDistTarget(Math.max(plan.distanceKm * 0.8, 5000));
+    return true;
+  }
+
+  /** True while the plan's ship is somewhere along its flight. */
+  private shipUnderWay(): number | null {
+    const s = store.getState();
+    if (!s.plan) return null;
+    const t = (s.timeMs - s.plan.depart.getTime()) / 1000;
+    return t >= 0 && t <= s.plan.travelTimeSec ? t : null;
+  }
+
+  /** Dive the chase cam to hull scale on the ship under way. */
+  zoomShip(): boolean {
+    if (this.shipUnderWay() === null) return false;
+    const s = store.getState();
+    if (this.controls.focusId !== SHIP_FOCUS) this.controls.focus(SHIP_FOCUS);
+    // Close enough that the true-scale hull fills a good part of the frame
+    // (the screen-constant sizing floor hands over to real scale here).
+    const lengthKm = (SHIP_BY_ID.get(s.shipId)?.lengthM ?? 50) / 1000;
+    this.controls.setDistTarget(Math.max(lengthKm * 3, 0.08));
+    return true;
+  }
+
+  /** Frame what's left to fly: ship-target midpoint, fit the gap. */
+  frameRemainingRoute(): boolean {
+    const t = this.shipUnderWay();
+    if (t === null) return false;
+    const s = store.getState();
+    const ship = shipPosition(s.plan!, t);
+    const target = this.eph.stateOf(s.plan!.destId, new Date(s.timeMs)).pos;
+    if (this.controls.focusId !== DOCK_FOCUS) this.controls.focus(DOCK_FOCUS);
+    this.controls.setDistTarget(Math.max(distance(ship, target) * 0.8, 5000));
     return true;
   }
 

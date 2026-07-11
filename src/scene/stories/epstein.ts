@@ -84,6 +84,8 @@ export const EPSTEIN: FlightStory = {
   spoiler: 1,
   build: (eph, { nowMs }) => epsteinPlan(eph, new Date(nowMs)),
   script: EPSTEIN_SCRIPT,
+  // No juice on a test yacht — the cue reads as the problem, not the remedy.
+  launchFlash: "SUSTAINED 6.8 g — NO JUICE, NO CUTOFF",
   runawayBurn: true,
   epitaphHtml: EPSTEIN_EPITAPH,
   exitFocusId: "mars",

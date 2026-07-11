@@ -31,6 +31,8 @@ export interface FlightStory extends StoryBase {
   syncConsole?: boolean;
   /** no-flip runaway burn: HUD shows RUNAWAY BURN + fuel, ends at the flip */
   runawayBurn?: boolean;
+  /** high-g launch banner override (default "JUICE ADMINISTERED") */
+  launchFlash?: string;
   /** ending card instead of the docking epilogue */
   epitaphHtml?: string;
   /**

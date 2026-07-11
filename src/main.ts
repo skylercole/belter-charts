@@ -16,7 +16,8 @@ import { maybeStartTour } from "./ui/tour";
 import { isViewportGated, mountMobileGate } from "./ui/mobileGate";
 import { store } from "./ui/store";
 
-/** Keyboard flight: H home, [ ] cycle, 1-8 planets, 9 Ceres, 0 Sol, G route. */
+/** Keyboard flight: H home, [ ] cycle, 1-8 planets, 9 Ceres, 0 Sol, G route,
+ *  Z hull close-up, V remaining route. */
 const DIGIT_FOCUS: Record<string, string> = {
   Digit1: "mercury",
   Digit2: "venus",
@@ -45,6 +46,8 @@ function bindKeyboard(scene: Scene3D) {
     else if (e.code === "BracketRight") scene.cycleFocus(1);
     else if (e.code === "BracketLeft") scene.cycleFocus(-1);
     else if (e.code === "KeyG") scene.frameRoute();
+    else if (e.code === "KeyZ") scene.zoomShip();
+    else if (e.code === "KeyV") scene.frameRemainingRoute();
   });
 }
 
