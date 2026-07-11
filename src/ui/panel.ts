@@ -16,7 +16,7 @@ import { buildShareUrl } from "./share";
 import { STORIES, STORY_BY_ID } from "../scene/stories";
 import { standardRideSpeed } from "../scene/stories/helpers";
 import { EVENTS } from "../timeline";
-import { getSpoilerLevel } from "./spoiler";
+import { BOOKS } from "./spoiler";
 import type { FlightPlan } from "../planner";
 import {
   fmtAu,
@@ -85,7 +85,13 @@ export function mountPanel(
         <button id="story-btn" class="tool-btn wide" data-tip="story flights: ride a canon scenario" data-tip-pos="right">☄ Stories ▾</button>
         <div id="story-menu" class="story-menu hidden"></div>
       </div>
-      <button id="traffic-panel-btn" class="tool-btn" data-tip="toggle ambient system traffic" data-tip-pos="left" aria-label="toggle ambient system traffic"></button>
+      <div class="story-wrap spoiler-wrap">
+        <button id="spoiler-btn" class="tool-btn" data-tip="spoiler gate: events &amp; stories past the last book you've read stay hidden" data-tip-pos="left" aria-label="set how far you have read"></button>
+        <div id="spoiler-menu" class="story-menu hidden"></div>
+      </div>
+    </div>
+    <div class="tool-row">
+      <button id="traffic-panel-btn" class="tool-btn wide" data-tip="toggle ambient system traffic" data-tip-pos="right" aria-label="toggle ambient system traffic"></button>
       <button id="about-btn" class="tool-btn" data-tip="about, credits &amp; controls" data-tip-pos="left" aria-label="about, credits and controls">ⓘ</button>
       <button id="feedback-btn" class="tool-btn" data-tip="send feedback" data-tip-pos="left" aria-label="send feedback">✉</button>
     </div>
@@ -214,21 +220,52 @@ export function mountPanel(
   });
 
   // Story flights menu: canon scenarios grouped under one button. Entries
-  // come from the registry, filtered by the reader's spoiler level; the
+  // come from the registry, filtered by the reader's spoiler gate; the
   // menu is rebuilt on every open so a spoiler change is picked up live.
   const storyBtn = root.querySelector<HTMLButtonElement>("#story-btn")!;
   const storyMenu = root.querySelector<HTMLDivElement>("#story-menu")!;
+  const spoilerBtn = root.querySelector<HTMLButtonElement>("#spoiler-btn")!;
+  const spoilerMenu = root.querySelector<HTMLDivElement>("#spoiler-menu")!;
   storyBtn.addEventListener("click", (e) => {
     e.stopPropagation();
+    spoilerMenu.classList.add("hidden");
     if (storyMenu.classList.contains("hidden")) {
-      const level = getSpoilerLevel();
+      const level = store.getState().spoilerBook;
       storyMenu.innerHTML = STORIES.filter((st) => st.spoiler <= level)
         .map((st) => `<button data-story="${st.id}">${st.label}</button>`)
         .join("");
     }
     storyMenu.classList.toggle("hidden");
   });
-  document.addEventListener("click", () => storyMenu.classList.add("hidden"));
+
+  // Spoiler gate: one global control, mirrored by the event card's select.
+  function renderSpoilerBtn() {
+    spoilerBtn.textContent = `▤ book ${store.getState().spoilerBook}`;
+  }
+  spoilerBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    storyMenu.classList.add("hidden");
+    if (spoilerMenu.classList.contains("hidden")) {
+      const level = store.getState().spoilerBook;
+      spoilerMenu.innerHTML = `<div class="menu-caption">I have read up to:</div>${BOOKS.map(
+        (b, i) =>
+          `<button data-book="${i + 1}" class="${i + 1 === level ? "active" : ""}">${
+            i + 1 === level ? "✓" : "·"
+          } ${i + 1} · ${b}</button>`
+      ).join("")}`;
+    }
+    spoilerMenu.classList.toggle("hidden");
+  });
+  spoilerMenu.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-book]");
+    if (!btn) return;
+    store.getState().setSpoilerBook(Number(btn.dataset.book));
+    spoilerMenu.classList.add("hidden");
+  });
+  document.addEventListener("click", () => {
+    storyMenu.classList.add("hidden");
+    spoilerMenu.classList.add("hidden");
+  });
 
   /** common ride kickoff: engage a scenario plan and start the clock */
   function startScenario(plan: FlightPlan, scenario: string, speed: number) {
@@ -422,6 +459,7 @@ export function mountPanel(
     if (s.honesty !== prev.honesty) renderHonesty();
     if (s.plan !== prev.plan) renderResult();
     if (s.trafficOn !== prev.trafficOn) renderTraffic();
+    if (s.spoilerBook !== prev.spoilerBook) renderSpoilerBtn();
     if (
       s.originId !== prev.originId ||
       s.destId !== prev.destId ||
@@ -442,4 +480,5 @@ export function mountPanel(
   renderLag();
   renderResult();
   renderTraffic();
+  renderSpoilerBtn();
 }

@@ -14,10 +14,15 @@ export const BOOKS = [
   "Babylon's Ashes",
 ];
 
+/* The store reads the level at module init, which also runs under vitest's
+ * node environment — hence the localStorage existence checks. */
+
 export function getSpoilerLevel(): number {
+  if (typeof localStorage === "undefined") return 1;
   return Number(localStorage.getItem(SPOILER_KEY) ?? "1");
 }
 
 export function setSpoilerLevel(level: number): void {
+  if (typeof localStorage === "undefined") return;
   localStorage.setItem(SPOILER_KEY, String(level));
 }

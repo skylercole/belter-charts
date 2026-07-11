@@ -1,6 +1,7 @@
 /** App state: one vanilla Zustand store, no framework. */
 import { createStore } from "zustand/vanilla";
 import type { FlightPlan } from "../planner";
+import { BOOKS, getSpoilerLevel, setSpoilerLevel } from "./spoiler";
 
 export interface AppState {
   /** current sim time, ms since epoch */
@@ -30,6 +31,8 @@ export interface AppState {
   showTicks: boolean;
   /** ambient system traffic layer */
   trafficOn: boolean;
+  /** spoiler gate: highest book (1..6) whose events/stories may show */
+  spoilerBook: number;
 
   setTime(ms: number): void;
   togglePlaying(): void;
@@ -50,6 +53,7 @@ export interface AppState {
   setTourOpen(v: boolean): void;
   toggleTicks(): void;
   setTraffic(on: boolean): void;
+  setSpoilerBook(book: number): void;
 }
 
 /** Era the UI can scrub; matches the packed small-body coverage with margin. */
@@ -76,6 +80,7 @@ export const store = createStore<AppState>()((set) => ({
   tourOpen: false,
   showTicks: true,
   trafficOn: true,
+  spoilerBook: getSpoilerLevel(),
 
   setTime: (ms) =>
     set({ timeMs: Math.min(Math.max(ms, ERA_START_MS), ERA_END_MS) }),
@@ -97,4 +102,9 @@ export const store = createStore<AppState>()((set) => ({
   setTourOpen: (v) => set({ tourOpen: v }),
   toggleTicks: () => set((s) => ({ showTicks: !s.showTicks })),
   setTraffic: (on) => set({ trafficOn: on }),
+  setSpoilerBook: (book) => {
+    const b = Math.min(Math.max(Math.round(book), 1), BOOKS.length);
+    setSpoilerLevel(b); // persists across sessions
+    set({ spoilerBook: b });
+  },
 }));

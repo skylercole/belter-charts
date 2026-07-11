@@ -5,7 +5,7 @@
  */
 import { EVENTS, type CanonEvent } from "../timeline";
 import { fmtDate } from "./format";
-import { BOOKS, getSpoilerLevel, setSpoilerLevel } from "./spoiler";
+import { BOOKS } from "./spoiler";
 import { ERA_END_MS, ERA_START_MS, store } from "./store";
 
 export function mountEventsUi(
@@ -13,8 +13,6 @@ export function mountEventsUi(
   timebar: HTMLElement,
   onFocus: (bodyId: string) => void
 ) {
-  let spoilerLevel = getSpoilerLevel();
-
   // --- markers over the scrubber ---
   const scrub = timebar.querySelector<HTMLInputElement>("#scrub")!;
   const wrap = document.createElement("div");
@@ -44,7 +42,8 @@ export function mountEventsUi(
   app.appendChild(card);
 
   function visibleEvents(): CanonEvent[] {
-    return EVENTS.filter((e) => e.spoiler <= spoilerLevel);
+    const level = store.getState().spoilerBook;
+    return EVENTS.filter((e) => e.spoiler <= level);
   }
 
   function renderMarks() {
@@ -60,6 +59,8 @@ export function mountEventsUi(
   }
 
   function showCard(e: CanonEvent) {
+    const spoilerLevel = store.getState().spoilerBook;
+    card.dataset.spoiler = String(e.spoiler);
     card.innerHTML = `
       <div class="ec-head">
         <span class="ec-book">book ${e.spoiler} · ${BOOKS[e.spoiler - 1]}</span>
@@ -86,9 +87,7 @@ export function mountEventsUi(
     card.querySelector<HTMLSelectElement>("#spoiler-sel")!.addEventListener(
       "change",
       (ev) => {
-        spoilerLevel = Number((ev.target as HTMLSelectElement).value);
-        setSpoilerLevel(spoilerLevel);
-        renderMarks();
+        store.getState().setSpoilerBook(Number((ev.target as HTMLSelectElement).value));
       }
     );
   }
@@ -111,6 +110,19 @@ export function mountEventsUi(
     const t = store.getState().timeMs;
     const next = visibleEvents().find((e) => e.dateMs > t + 1000);
     if (next) jumpTo(next);
+  });
+
+  // The gate can change from the panel control too: refresh the scrubber
+  // marks, keep an open card's select in step, and close a card whose
+  // event just fell behind the gate.
+  store.subscribe((s, prev) => {
+    if (s.spoilerBook === prev.spoilerBook) return;
+    renderMarks();
+    const sel = card.querySelector<HTMLSelectElement>("#spoiler-sel");
+    if (sel) sel.value = String(s.spoilerBook);
+    if (Number(card.dataset.spoiler ?? "1") > s.spoilerBook) {
+      card.classList.add("hidden");
+    }
   });
 
   renderMarks();

@@ -356,6 +356,9 @@ button.primary.ride:hover {
   gap: 6px;
   margin-top: 12px;
 }
+.tool-row + .tool-row {
+  margin-top: 6px;
+}
 .tool-btn {
   background: none;
   border: 1px dashed #24354f;
@@ -381,8 +384,24 @@ button.primary.ride:hover {
   display: flex;
 }
 /* the button's hover tooltip would overlap the opened menu — suppress it */
-.story-wrap:has(.story-menu:not(.hidden)) #story-btn::after {
+.story-wrap:has(.story-menu:not(.hidden)) .tool-btn::after {
   display: none;
+}
+/* spoiler gate: compact popover, right-aligned so it stays in the panel */
+.spoiler-wrap {
+  flex: 0 0 auto;
+}
+.spoiler-wrap .story-menu {
+  left: auto;
+  right: 0;
+}
+.story-menu .menu-caption {
+  color: #55637a;
+  font-size: 10px;
+  padding: 4px 8px 2px;
+}
+.story-menu button.active {
+  color: #e8f2fa;
 }
 .story-wrap .tool-btn {
   flex: 1;
