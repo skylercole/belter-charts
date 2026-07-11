@@ -74,7 +74,9 @@ async function boot() {
     if (shared.traffic === "off") s.setTraffic(false);
   }
 
-  mountPanel(document.getElementById("panel")!, eph);
+  // Late-bound: the 3D scene mounts after the panel; watch stories need it.
+  let focusBody: (id: string) => void = () => {};
+  mountPanel(document.getElementById("panel")!, eph, (id) => focusBody(id));
   mountTimebar(document.getElementById("timebar")!);
   mountAbout(document.getElementById("app")!, document.getElementById("about-btn")!);
   mountFeedback(document.getElementById("app")!, document.getElementById("feedback-btn")!);
@@ -119,6 +121,7 @@ async function boot() {
     try {
       const scene = new Scene3D(container, eph, base);
       document.getElementById("map")!.remove();
+      focusBody = (id) => scene.focus(id);
       render = (s, dt) => scene.render(s, dt);
       mountNavRail(app, {
         onSelect: (id) => scene.focus(id),

@@ -5,24 +5,15 @@
  */
 import { EVENTS, type CanonEvent } from "../timeline";
 import { fmtDate } from "./format";
+import { BOOKS, getSpoilerLevel, setSpoilerLevel } from "./spoiler";
 import { ERA_END_MS, ERA_START_MS, store } from "./store";
-
-const SPOILER_KEY = "fnb-spoiler-book";
-const BOOKS = [
-  "Leviathan Wakes",
-  "Caliban's War",
-  "Abaddon's Gate",
-  "Cibola Burn",
-  "Nemesis Games",
-  "Babylon's Ashes",
-];
 
 export function mountEventsUi(
   app: HTMLElement,
   timebar: HTMLElement,
   onFocus: (bodyId: string) => void
 ) {
-  let spoilerLevel = Number(localStorage.getItem(SPOILER_KEY) ?? "1");
+  let spoilerLevel = getSpoilerLevel();
 
   // --- markers over the scrubber ---
   const scrub = timebar.querySelector<HTMLInputElement>("#scrub")!;
@@ -96,7 +87,7 @@ export function mountEventsUi(
       "change",
       (ev) => {
         spoilerLevel = Number((ev.target as HTMLSelectElement).value);
-        localStorage.setItem(SPOILER_KEY, String(spoilerLevel));
+        setSpoilerLevel(spoilerLevel);
         renderMarks();
       }
     );

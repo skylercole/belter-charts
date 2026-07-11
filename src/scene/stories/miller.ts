@@ -7,31 +7,13 @@
  * Mechanically a normal flight plan (real intercept, real docking) — only
  * the comm chatter is scripted.
  */
-import type { Ephemeris } from "../ephemeris";
-import { effectiveAccelG, planFlight, type FlightPlan, type HonestyMode } from "../planner";
-import { EVENTS } from "../timeline";
-import type { CommLine } from "./commlog";
+import { effectiveAccelG } from "../../planner";
+import type { CommLine } from "../commlog";
+import { planArrivingAt } from "./helpers";
+import type { FlightStory } from "./types";
 
 /** budget-transport burn: Miller flew coach */
 export const MILLER_G = 0.3;
-
-/**
- * Plan Ceres -> Eros arriving at the Eros incident. Iterates the departure
- * so the docking lands within an hour of the event (a few cheap re-plans).
- */
-export function millerPlan(eph: Ephemeris, honesty: HonestyMode): FlightPlan {
-  const incidentMs = EVENTS.find((e) => e.id === "eros-incident")!.dateMs;
-  const accelG = effectiveAccelG(MILLER_G, honesty);
-  let departMs = incidentMs - 7 * 86_400_000;
-  let plan = planFlight(eph, "ceres", "eros", new Date(departMs), accelG);
-  for (let i = 0; i < 6; i++) {
-    const miss = plan.arrive.getTime() - incidentMs;
-    if (Math.abs(miss) < 3_600_000) break;
-    departMs -= miss;
-    plan = planFlight(eph, "ceres", "eros", new Date(departMs), accelG);
-  }
-  return plan;
-}
 
 export const MILLER_SCRIPT: CommLine[] = [
   { at: 0.001, text: "Ceres dock: transport away, on the drift for Eros." },
@@ -45,3 +27,19 @@ export const MILLER_SCRIPT: CommLine[] = [
   { at: 0.96, text: "Eros approach: hold your vector, transport. Busy day out here." },
   { at: 0.999, text: "dock: clamps on. Eros station. Everybody out." },
 ];
+
+export const MILLER: FlightStory = {
+  kind: "flight",
+  id: "miller",
+  label: "◍ Miller's ride to Eros",
+  spoiler: 1,
+  build: (eph, { honesty }) =>
+    planArrivingAt(eph, "ceres", "eros", "eros-incident", effectiveAccelG(MILLER_G, honesty)),
+  script: MILLER_SCRIPT,
+  statedG: MILLER_G,
+  syncConsole: true,
+  // Close to the vessel and high above the ecliptic — a top-and-side view
+  // of the transport instead of the far route-framing chart seat.
+  seat: { pitch: 0.55, distKm: 6e6 },
+  errorText: "Couldn't plan Miller's ride on this ephemeris.",
+};

@@ -71,16 +71,15 @@ export class RideHud {
     plan: FlightPlan | null,
     timeMs: number,
     phase: BurnPhase,
-    scenario: "epstein" | "miller" | null,
+    runaway: boolean,
     cockpit: boolean
   ) {
     this.root.classList.toggle("hidden", !visible);
     if (!visible || !plan) return;
 
-    const epstein = scenario === "epstein";
-    // For the Epstein scenario the "flight" is encoded as accelerate-only up
-    // to the pseudo-flip (fuel exhaustion); progress runs against that.
-    const T = epstein ? plan.flipTimeSec : plan.travelTimeSec;
+    // Runaway-burn stories (Epstein) encode the "flight" as accelerate-only
+    // up to the pseudo-flip (fuel exhaustion); progress runs against that.
+    const T = runaway ? plan.flipTimeSec : plan.travelTimeSec;
     const t = Math.min(Math.max((timeMs - plan.depart.getTime()) / 1000, 0), T);
     // Speed relative to the destination: starts at |v0-v1|, peaks near the
     // flip, and still hits zero at dock. (Epstein: reduces to accel*t.)
@@ -92,16 +91,16 @@ export class RideHud {
     );
 
     this.phaseEl.textContent =
-      epstein && phase === "burn"
+      runaway && phase === "burn"
         ? "RUNAWAY BURN"
-        : epstein
+        : runaway
           ? "DRIVE OFF"
           : phase === "dock" || phase === "off"
             ? ARRIVAL_LABEL[arrivalMode(BODY_BY_ID.get(plan.destId))][phase]
             : PHASE_LABEL[phase];
-    this.phaseEl.dataset.phase = epstein ? "flip" : phase;
+    this.phaseEl.dataset.phase = runaway ? "flip" : phase;
 
-    if (epstein) {
+    if (runaway) {
       const fuel = Math.max(0, 100 * (1 - t / T));
       this.rows.innerHTML = `
         <div><span>velocity</span><b>${fmtVelocity(v)}</b></div>

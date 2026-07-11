@@ -13,8 +13,10 @@ import {
 } from "../planner";
 import { track } from "../analytics";
 import { buildShareUrl } from "./share";
-import { epsteinPlan, EPSTEIN_BURN_SEC } from "../scene/epstein";
-import { MILLER_G, millerPlan } from "../scene/miller";
+import { STORIES, STORY_BY_ID } from "../scene/stories";
+import { standardRideSpeed } from "../scene/stories/helpers";
+import { EVENTS } from "../timeline";
+import { getSpoilerLevel } from "./spoiler";
 import type { FlightPlan } from "../planner";
 import {
   fmtAu,
@@ -26,7 +28,11 @@ import {
 } from "./format";
 import { store } from "./store";
 
-export function mountPanel(root: HTMLElement, eph: Ephemeris) {
+export function mountPanel(
+  root: HTMLElement,
+  eph: Ephemeris,
+  onFocus: (bodyId: string) => void = () => {}
+) {
   const options = ROUTE_BODIES.map(
     (b) => `<option value="${b.id}">${b.name}</option>`
   ).join("");
@@ -77,10 +83,7 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     <div class="tool-row">
       <div class="story-wrap">
         <button id="story-btn" class="tool-btn wide" data-tip="story flights: ride a canon scenario" data-tip-pos="right">☄ Stories ▾</button>
-        <div id="story-menu" class="story-menu hidden">
-          <button data-story="epstein">☄ Epstein's last flight</button>
-          <button data-story="miller">◍ Miller's ride to Eros</button>
-        </div>
+        <div id="story-menu" class="story-menu hidden"></div>
       </div>
       <button id="traffic-panel-btn" class="tool-btn" data-tip="toggle ambient system traffic" data-tip-pos="left" aria-label="toggle ambient system traffic"></button>
       <button id="about-btn" class="tool-btn" data-tip="about, credits &amp; controls" data-tip-pos="left" aria-label="about, credits and controls">ⓘ</button>
@@ -202,28 +205,32 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     const s = store.getState();
     const plan = s.plan;
     if (!plan) return;
-    // Ride length scales with the journey: quick hops play out in ~30 s,
-    // long hauls stretch toward 2.5 min so the scale of the trip registers.
-    const days = plan.travelTimeSec / 86_400;
-    const wallSec = Math.min(Math.max(days * 9, 30), 150);
     s.setTime(plan.depart.getTime());
-    s.setSpeed(days / wallSec);
+    s.setSpeed(standardRideSpeed(plan));
     s.setPlaying(true);
     s.setRide(true);
     track("ride-started");
   });
 
-  // Story flights menu: canon scenarios grouped under one button.
+  // Story flights menu: canon scenarios grouped under one button. Entries
+  // come from the registry, filtered by the reader's spoiler level; the
+  // menu is rebuilt on every open so a spoiler change is picked up live.
   const storyBtn = root.querySelector<HTMLButtonElement>("#story-btn")!;
   const storyMenu = root.querySelector<HTMLDivElement>("#story-menu")!;
   storyBtn.addEventListener("click", (e) => {
     e.stopPropagation();
+    if (storyMenu.classList.contains("hidden")) {
+      const level = getSpoilerLevel();
+      storyMenu.innerHTML = STORIES.filter((st) => st.spoiler <= level)
+        .map((st) => `<button data-story="${st.id}">${st.label}</button>`)
+        .join("");
+    }
     storyMenu.classList.toggle("hidden");
   });
   document.addEventListener("click", () => storyMenu.classList.add("hidden"));
 
   /** common ride kickoff: engage a scenario plan and start the clock */
-  function startScenario(plan: FlightPlan, scenario: "epstein" | "miller", speed: number) {
+  function startScenario(plan: FlightPlan, scenario: string, speed: number) {
     const s = store.getState();
     s.setPlan(plan);
     s.setScenario(scenario);
@@ -233,33 +240,53 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
     s.setRide(true);
   }
 
+  /** watch story in progress: auto-pause the clock at its end event */
+  let watchEndMs: number | null = null;
+
   storyMenu.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-story]");
     if (!btn) return;
     storyMenu.classList.add("hidden");
+    const story = STORY_BY_ID.get(btn.dataset.story!);
+    if (!story) return;
     const s = store.getState();
-    if (btn.dataset.story === "epstein") {
-      // 37 h of burn over ~40 s of wall time
-      startScenario(epsteinPlan(eph, new Date(s.timeMs)), "epstein", EPSTEIN_BURN_SEC / 86_400 / 40);
-      track("epstein-flight");
-    } else {
-      // Ceres -> Eros, docking as the incident begins; ride pacing matches
-      // the normal ride button (quick hops ~30 s, long hauls ~2.5 min).
-      try {
-        const plan = millerPlan(eph, s.honesty);
-        // sync the console so the result card matches the flight
-        s.setOrigin("ceres");
-        s.setDest("eros");
-        s.setAccel(MILLER_G);
-        origin.value = "ceres";
-        dest.value = "eros";
-        const days = plan.travelTimeSec / 86_400;
-        startScenario(plan, "miller", days / Math.min(Math.max(days * 9, 30), 150));
-        track("miller-flight");
-      } catch {
-        resultEl.classList.add("error");
-        resultEl.textContent = "Couldn't plan Miller's ride on this ephemeris.";
+
+    if (story.kind === "watch") {
+      const start = EVENTS.find((ev) => ev.id === story.startEventId)!;
+      const end = story.endEventId
+        ? EVENTS.find((ev) => ev.id === story.endEventId)
+        : undefined;
+      s.setPlan(null);
+      s.setTime(start.dateMs);
+      onFocus(story.focusId);
+      s.setSpeed(story.speedDaysPerSec);
+      s.setPlaying(true);
+      watchEndMs = end ? end.dateMs : null;
+      track(`story-${story.id}`);
+      return;
+    }
+
+    try {
+      const plan = story.build(eph, { honesty: s.honesty, nowMs: s.timeMs });
+      // Console sync and hull swap must precede setPlan: those setters
+      // clear the plan (store invariants).
+      if (story.syncConsole) {
+        s.setOrigin(plan.originId);
+        s.setDest(plan.destId);
+        origin.value = plan.originId;
+        dest.value = plan.destId;
       }
+      if (story.shipId) {
+        s.setShip(story.shipId);
+        ship.value = story.shipId;
+      }
+      if (story.statedG != null) s.setAccel(story.statedG);
+      startScenario(plan, story.id, story.speedDaysPerSec?.(plan) ?? standardRideSpeed(plan));
+      track(`story-${story.id}`);
+    } catch {
+      resultEl.classList.add("error");
+      resultEl.textContent =
+        story.errorText ?? "Couldn't plan this story on the current ephemeris.";
     }
   });
 
@@ -382,6 +409,14 @@ export function mountPanel(root: HTMLElement, eph: Ephemeris) {
   let lastLagRender = 0;
   let lastProgressWall = 0;
   store.subscribe((s, prev) => {
+    // watch story: pause at the end event; any manual pause cancels it
+    if (watchEndMs !== null) {
+      if (!s.playing) watchEndMs = null;
+      else if (s.timeMs >= watchEndMs) {
+        watchEndMs = null;
+        s.setPlaying(false);
+      }
+    }
     if (s.accelG !== prev.accelG || s.shipId !== prev.shipId) renderShip();
     if (s.honesty !== prev.honesty) renderHonesty();
     if (s.plan !== prev.plan) renderResult();

@@ -19,8 +19,8 @@ export interface AppState {
   ride: boolean;
   /** first-person view while riding */
   cockpit: boolean;
-  /** active story scenario */
-  scenario: "epstein" | "miller" | null;
+  /** active story scenario id (see scene/stories) */
+  scenario: string | null;
   /** tightbeam pulse in flight: sim time it left the origin */
   beamStartMs: number | null;
   muted: boolean;
@@ -43,7 +43,7 @@ export interface AppState {
   setPlan(plan: FlightPlan | null): void;
   setRide(r: boolean): void;
   setCockpit(c: boolean): void;
-  setScenario(s: "epstein" | "miller" | null): void;
+  setScenario(s: string | null): void;
   fireBeam(): void;
   clearBeam(): void;
   toggleMuted(): void;

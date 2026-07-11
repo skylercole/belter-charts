@@ -9,10 +9,11 @@
  * figure; see ASSUMPTIONS.md). The ride ends at "fuel exhausted" with an
  * epitaph instead of a docking.
  */
-import type { Ephemeris } from "../ephemeris";
-import { length, scale } from "../ephemeris/vec";
-import { G0, type FlightPlan } from "../planner";
-import type { CommLine } from "./commlog";
+import type { Ephemeris } from "../../ephemeris";
+import { length, scale } from "../../ephemeris/vec";
+import { G0, type FlightPlan } from "../../planner";
+import type { CommLine } from "../commlog";
+import type { FlightStory } from "./types";
 
 export const EPSTEIN_G = 6.8; // pinned-to-the-couch, not instantly lethal
 export const EPSTEIN_BURN_SEC = 37 * 3600;
@@ -36,7 +37,7 @@ export function epsteinPlan(eph: Ephemeris, depart: Date): FlightPlan {
   };
   return {
     originId: "mars",
-    destId: "mars", // display only; the HUD is overridden for this scenario
+    destId: "mars", // display only; the HUD is overridden for runaway burns
     depart,
     arrive: new Date(depart.getTime() + T * 1000),
     accelG: EPSTEIN_G,
@@ -75,3 +76,17 @@ export const EPSTEIN_EPITAPH = `
   <p class="src">— scenario after the short story "Drive"; figures approximate,
   see ASSUMPTIONS.md</p>
 `;
+
+export const EPSTEIN: FlightStory = {
+  kind: "flight",
+  id: "epstein",
+  label: "☄ Epstein's last flight",
+  spoiler: 1,
+  build: (eph, { nowMs }) => epsteinPlan(eph, new Date(nowMs)),
+  script: EPSTEIN_SCRIPT,
+  runawayBurn: true,
+  epitaphHtml: EPSTEIN_EPITAPH,
+  exitFocusId: "mars",
+  // 37 h of burn over ~40 s of wall time
+  speedDaysPerSec: () => EPSTEIN_BURN_SEC / 86_400 / 40,
+};

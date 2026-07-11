@@ -26,8 +26,7 @@ import { buildBodies, type BodyVisual } from "./bodies3d";
 import { Cockpit } from "./cockpit";
 import { CommLog } from "./commlog";
 import { FocusControls, SHIP_FOCUS } from "./controls";
-import { EPSTEIN_EPITAPH, EPSTEIN_SCRIPT } from "./epstein";
-import { MILLER_SCRIPT } from "./miller";
+import { STORY_BY_ID, type FlightStory } from "./stories";
 import { RideHud } from "./hud";
 import { RideOverlays } from "./overlays";
 import { ShipVisual, type BurnPhase } from "./ship";
@@ -74,6 +73,10 @@ export class Scene3D {
   private lastPhase: BurnPhase = "off";
   private braceWarned = false;
   private epitaphShown = false;
+  /** active flight story for the current ride, resolved at ride start */
+  private rideStory: FlightStory | null = null;
+  /** sim seconds into the flight when the story's epitaph cuts in */
+  private rideEpitaphAtSec = Infinity;
   private ttKey = "";
   private targetPathScratch = new Float64Array(TARGET_PATH_PTS * 3);
   private rideBaseSpeed = 2;
@@ -155,6 +158,15 @@ export class Scene3D {
     // AudioContext is created within a user gesture.
     store.subscribe((s, prev) => {
       if (s.ride && !prev.ride) {
+        // Resolve the story once per ride; the render loop reads the cache.
+        const story = s.scenario ? STORY_BY_ID.get(s.scenario) : undefined;
+        this.rideStory = story?.kind === "flight" ? story : null;
+        this.rideEpitaphAtSec =
+          this.rideStory?.epitaphHtml && s.plan
+            ? this.rideStory.epitaphAtFrac != null
+              ? this.rideStory.epitaphAtFrac * s.plan.travelTimeSec
+              : s.plan.flipTimeSec // runaway default: the fuel-out moment
+            : Infinity;
         this.rideBaseSpeed = s.speedDaysPerSec;
         this.sound.unlock();
         this.controls.focus(SHIP_FOCUS);
@@ -178,30 +190,27 @@ export class Scene3D {
           while (skew < -Math.PI) skew += 2 * Math.PI;
           skew = Math.min(Math.max(skew, -0.26), 0.26);
           const theta = thetaTarget + skew;
-          // Miller's ride sits close to the vessel and high above the
-          // ecliptic — a top-and-side view of the transport, Epstein-style —
-          // instead of the far route-framing chart seat.
-          const miller = s.scenario === "miller";
+          // Story seats can override the far route-framing chart seat
+          // (e.g. Miller sits close to the vessel and high above the
+          // ecliptic — a top-and-side view of the transport).
+          const seat = this.rideStory?.seat;
           this.controls.setOrientation(
             Math.atan2(-Math.sin(theta), -Math.cos(theta)),
-            miller ? 0.55 : RIDE_SEAT_PITCH
+            seat?.pitch ?? RIDE_SEAT_PITCH
           );
           // High seat: far enough back that the route, its ellipses and the
           // inner system spread out below (the ship is screen-constant, so
           // it stays visible at any distance).
           this.controls.setDistTarget(
-            miller
-              ? 6e6
-              : Math.min(Math.max(s.plan.distanceKm * RIDE_SEAT_DIST, 5e6), 1.8e8)
+            seat?.distKm ??
+              Math.min(Math.max(s.plan.distanceKm * RIDE_SEAT_DIST, 5e6), 1.8e8)
           );
         }
         this.braceWarned = false;
         this.epitaphShown = false;
         this.lastShipPos = null;
-        if (s.scenario === "epstein" && s.plan) {
-          this.commLog.setCustomScript(s.plan, EPSTEIN_SCRIPT);
-        } else if (s.scenario === "miller" && s.plan) {
-          this.commLog.setCustomScript(s.plan, MILLER_SCRIPT);
+        if (this.rideStory && s.plan) {
+          this.commLog.setCustomScript(s.plan, this.rideStory.script);
         } else {
           this.commLog.setPlan(s.plan);
         }
@@ -217,9 +226,11 @@ export class Scene3D {
         this.overlays.hideEpitaph();
         if (this.controls.focusId === SHIP_FOCUS || this.controls.focusId === DOCK_FOCUS) {
           this.controls.focus(
-            prev.scenario === "epstein" ? "mars" : (s.plan?.destId ?? s.destId)
+            this.rideStory?.exitFocusId ?? s.plan?.destId ?? s.destId
           );
         }
+        this.rideStory = null;
+        this.rideEpitaphAtSec = Infinity;
       }
       if (s.muted !== prev.muted) {
         this.sound.setMuted(s.muted);
@@ -583,14 +594,14 @@ export class Scene3D {
     // Ride bookkeeping: sound, brace warning, flip cue, g overlay, endings.
     if (s.ride && s.plan) {
       const tSec = (s.timeMs - s.plan.depart.getTime()) / 1000;
-      const epstein = s.scenario === "epstein";
+      const runaway = !!this.rideStory?.runawayBurn;
       if (shipState) this.lastShipPos = shipState.pos;
 
       this.overlays.setG(phase === "flip" || phase === "off" ? 0 : s.plan.accelG, thrusting);
 
       // brace warning shortly before the flip
       const w = Math.max(s.plan.travelTimeSec * 0.012, 30);
-      if (!epstein && !this.braceWarned && phase === "burn" && tSec > s.plan.flipTimeSec - 5 * w) {
+      if (!runaway && !this.braceWarned && phase === "burn" && tSec > s.plan.flipTimeSec - 5 * w) {
         this.braceWarned = true;
         this.overlays.flash("BRACE FOR FLIP", "brace", 2600);
         this.sound.braceKlaxon();
@@ -610,7 +621,7 @@ export class Scene3D {
       // ship and target so the convergence is visible, and taper sim speed
       // so the merge doesn't flash past.
       const progress = tSec / s.plan.travelTimeSec;
-      if (!epstein && shipState && progress > 0.75 && progress < 1 && !this.dockAnim) {
+      if (!runaway && shipState && progress > 0.75 && progress < 1 && !this.dockAnim) {
         if (!s.cockpit) {
           // focus the live ship-target midpoint: both guaranteed in frame
           if (this.controls.focusId !== DOCK_FOCUS) this.controls.focus(DOCK_FOCUS);
@@ -624,14 +635,19 @@ export class Scene3D {
         }
       }
 
-      if (epstein) {
-        // fuel out at the pseudo-flip: cut everything, show the epitaph
-        if (tSec >= s.plan.flipTimeSec && !this.epitaphShown) {
+      const epitaphHtml = this.rideStory?.epitaphHtml;
+      if (epitaphHtml) {
+        // The story ends before any dock (fuel-out, torpedoes, silence):
+        // cut everything, show the epitaph.
+        if (tSec >= this.rideEpitaphAtSec && !this.epitaphShown) {
           this.epitaphShown = true;
+          // Snap an overshooting clock back to the moment the story ends,
+          // so the frozen HUD/ship read mid-flight, not post-arrival.
+          s.setTime(s.plan.depart.getTime() + this.rideEpitaphAtSec * 1000);
           s.setPlaying(false);
           this.sound.setThrust(0);
           this.sound.creaks();
-          this.overlays.showEpitaph(EPSTEIN_EPITAPH, () => {
+          this.overlays.showEpitaph(epitaphHtml, () => {
             s.setRide(false);
             s.setSpeed(2);
           });
@@ -778,7 +794,14 @@ export class Scene3D {
     }
 
     this.lastPhase = phase;
-    this.hud.update(s.ride, s.plan, s.timeMs, hudPhase, s.scenario, s.cockpit);
+    this.hud.update(
+      s.ride,
+      s.plan,
+      s.timeMs,
+      hudPhase,
+      !!this.rideStory?.runawayBurn,
+      s.cockpit
+    );
     this.commLog.update(s.ride, s.timeMs);
 
     // Tightbeam
