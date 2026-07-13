@@ -86,7 +86,7 @@ export function mountPanel(
         <div id="story-menu" class="story-menu hidden"></div>
       </div>
       <div class="story-wrap spoiler-wrap">
-        <button id="spoiler-btn" class="tool-btn" data-tip="spoiler gate: events &amp; stories past the last book you've read stay hidden" data-tip-pos="left" aria-label="set how far you have read"></button>
+        <button id="spoiler-btn" class="tool-btn" data-tip="spoiler gate: events &amp; stories past the last book you've read stay hidden" aria-label="set how far you have read"></button>
         <div id="spoiler-menu" class="story-menu hidden"></div>
       </div>
       <button id="about-btn" class="tool-btn" data-tip="about, credits &amp; controls" data-tip-pos="left" aria-label="about, credits and controls">ⓘ</button>

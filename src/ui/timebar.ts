@@ -7,7 +7,6 @@ const SPEEDS = [
   { d: 0.5, label: "12 h/s" },
   { d: 2, label: "2 d/s" },
   { d: 5, label: "5 d/s" },
-  { d: 10, label: "10 d/s" },
 ];
 
 export function mountTimebar(root: HTMLElement) {

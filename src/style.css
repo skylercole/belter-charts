@@ -473,6 +473,11 @@ button.primary.ride:hover {
 [data-tip][data-tip-pos="right"]:hover::after { translate: 0 0; }
 [data-tip][data-tip-pos="below"]::after { bottom: auto; top: calc(100% + 7px); translate: -50% -3px; }
 [data-tip][data-tip-pos="below"]:hover::after { translate: -50% 0; }
+/* #spoiler-btn sits mid-row inside the 248px panel content box; a full-width
+   centred tip pokes past the panel's right padding and — because #panel is
+   overflow-y:auto, which forces overflow-x to auto — spawns a stray horizontal
+   scrollbar. Cap the width so the centred tip stays within the panel. */
+#spoiler-btn[data-tip]::after { max-width: 180px; }
 .keys-hint {
   margin-top: 10px;
   padding-top: 8px;
