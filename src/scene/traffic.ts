@@ -130,7 +130,9 @@ export class TrafficVisual {
       return;
     }
 
-    this.schedule.update(timeMs, honesty, 1);
+    // Small per-frame slot budget: the 45-slot lookback fills over ~23 frames
+    // instead of ~6, so the cold-start burst (nearest ships first) stays light.
+    this.schedule.update(timeMs, honesty, 1, 2);
     const active = this.schedule.active(timeMs);
     this.active = active;
 

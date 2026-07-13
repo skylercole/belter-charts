@@ -51,6 +51,27 @@ function bindKeyboard(scene: Scene3D) {
   });
 }
 
+/** Write the loading overlay's status line, recreating the element if a
+ *  later boot stage removed it. Clears `.done` so a re-shown message is opaque. */
+function setLoadingStage(text: string) {
+  let el = document.getElementById("loading");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "loading";
+    (document.getElementById("app") ?? document.body).append(el);
+  }
+  el.classList.remove("done");
+  el.textContent = text;
+}
+
+/** Fade the loading overlay out, then remove it. Idempotent. */
+function hideLoading() {
+  const el = document.getElementById("loading");
+  if (!el) return;
+  el.classList.add("done");
+  setTimeout(() => el.remove(), 350);
+}
+
 async function boot() {
   // Hard block on phone-width viewports: the gate takes over and boot
   // re-runs only if the viewport grows past the threshold.
@@ -62,7 +83,10 @@ async function boot() {
   }
   const base = import.meta.env.BASE_URL;
   const eph = new TimelineEphemeris(await loadEphemeris(`${base}ephem`));
-  document.getElementById("loading")!.remove();
+  performance.mark("eph-loaded");
+  // Keep the overlay up: the heavy work (scene build + warm-up) is still
+  // ahead. It's removed only once the first frame has actually rendered.
+  setLoadingStage("charting orbits…");
 
   // Shared plan in the URL: restore state before the panels mount.
   const shared = parseShareUrl(location.search);
@@ -123,6 +147,7 @@ async function boot() {
     app.prepend(container);
     try {
       const scene = new Scene3D(container, eph, base);
+      performance.mark("scene-built");
       document.getElementById("map")!.remove();
       focusBody = (id) => scene.focus(id);
       render = (s, dt) => scene.render(s, dt);
@@ -133,6 +158,12 @@ async function boot() {
       });
       bindKeyboard(scene);
       mountEventsUi(app, timebarEl, (id) => scene.focus(id));
+      // Spread the one-time cost (shader compile + orbit sampling) across
+      // yielded chunks behind the overlay, instead of hitching frame 1.
+      await scene.warmup((stage, frac) =>
+        setLoadingStage(frac > 0 ? `${stage} ${Math.round(frac * 100)}%` : stage)
+      );
+      performance.mark("warmup-done");
     } catch (e) {
       // No WebGL (blocked or unsupported): fall back to the flat map.
       console.warn("3D scene unavailable, falling back to 2D map", e);
@@ -149,6 +180,7 @@ async function boot() {
   maybeStartTour({ sharedArrival: !!shared });
 
   let lastFrame = performance.now();
+  let firstFrame = true;
   function frame(now: number) {
     const dt = Math.min((now - lastFrame) / 1000, 0.1);
     lastFrame = now;
@@ -157,21 +189,21 @@ async function boot() {
       s.setTime(s.timeMs + s.speedDaysPerSec * 86_400_000 * dt);
     }
     render(store.getState(), dt);
+    if (firstFrame) {
+      // First real frame is on screen: drop the overlay. Covers 3D, 2D and
+      // the WebGL-failure fallback with no per-path logic.
+      firstFrame = false;
+      performance.mark("first-frame");
+      hideLoading();
+    }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 }
 
 function bootError(e: Error) {
-  // #loading is removed once the ephemerides land; recreate it for
-  // failures that happen later in boot.
-  let el = document.getElementById("loading");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "loading";
-    (document.getElementById("app") ?? document.body).append(el);
-  }
-  el.textContent = `failed to load: ${e.message}`;
+  // setLoadingStage recreates #loading if a later boot stage removed it.
+  setLoadingStage(`failed to load: ${e.message}`);
   console.error(e);
 }
 

@@ -773,9 +773,22 @@ button.primary.ride:hover {
 #loading {
   position: absolute;
   inset: 0;
+  /* opaque and above the CSS2D label layer (z-index 1) and panel (z-index 2):
+     the scene builds and warms up behind this, so nothing half-drawn shows */
+  z-index: 10;
   display: grid;
   place-items: center;
+  background: #06080f;
   color: #8899aa;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+#loading.done {
+  opacity: 0;
+  /* fading out and pending removal: never intercept clicks on the scene,
+     even if the removal timer is throttled (e.g. backgrounded tab) */
+  pointer-events: none;
 }
 
 /* ---- planner panel ---- */

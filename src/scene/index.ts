@@ -39,6 +39,12 @@ import { TARGET_PATH_PTS, TrajectoryVisual } from "./trajectory";
 
 const ORBIT_SAMPLES = 360;
 const ORBIT_CACHE_DAYS = 45;
+/** warm-up: max wall-clock per orbit-sampling chunk before yielding a frame */
+const WARMUP_CHUNK_MS = 8;
+/** render(): max orbit lines to resample per frame (scrub/first-frame budget) */
+const ORBIT_RESAMPLE_PER_FRAME = 2;
+/** render(): max travel-time planFlights to run per frame */
+const TT_PER_FRAME = 2;
 const AU_KM = 149_597_870.7;
 /** pseudo focus id: midpoint of the planned route */
 const ROUTE_FOCUS = "__route__";
@@ -79,6 +85,11 @@ export class Scene3D {
   /** sim seconds into the flight when the story's epitaph cuts in */
   private rideEpitaphAtSec = Infinity;
   private ttKey = "";
+  /** travel-time labels are refreshed a few per frame from this queue */
+  private ttQueue: BodyVisual[] = [];
+  private ttOrigin = "";
+  private ttG = 0;
+  private ttDate = new Date(0);
   private targetPathScratch = new Float64Array(TARGET_PATH_PTS * 3);
   private rideBaseSpeed = 2;
   /** docking epilogue: wall-clock scripted glide after arrival */
@@ -125,11 +136,23 @@ export class Scene3D {
     new THREE.TextureLoader().load(`${base}textures/skybox_milky_way.jpg`, (tex) => {
       tex.mapping = THREE.EquirectangularReflectionMapping;
       tex.colorSpace = THREE.SRGBColorSpace;
+      // Background needs no PMREM; assign it right away.
       this.scene.background = tex;
       this.scene.backgroundIntensity = 0.35;
-      // PBR reflections on hulls/stations from the same panorama
-      this.scene.environment = tex;
-      this.scene.environmentIntensity = 0.5;
+      // Environment does: assigning an equirect map to scene.environment runs
+      // PMREM generation on the next render — a heavy GPU pass. Defer it past
+      // the first interactive frame so it can't stack onto the boot hitch.
+      // (Hulls/stations just lack image-based reflections for ~1-2s, invisible
+      // at system scale.)
+      const setEnv = () => {
+        this.scene.environment = tex;
+        this.scene.environmentIntensity = 0.5;
+      };
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(setEnv, { timeout: 3000 });
+      } else {
+        setTimeout(setEnv, 1500); // Safari has no requestIdleCallback
+      }
     });
 
     this.sunLight = new THREE.PointLight(0xffffff, 2.4, 0, 0);
@@ -284,6 +307,48 @@ export class Scene3D {
     }
   }
 
+  /**
+   * One-time pre-flight, run behind the loading overlay before the render loop
+   * starts. Compiles shader programs and pre-samples every orbit polyline,
+   * yielding a frame between chunks so the main thread never blocks for long.
+   * Best-effort: any failure just defers the cost to the first render().
+   */
+  async warmup(onProgress?: (stage: string, frac: number) => void): Promise<void> {
+    const nextFrame = () =>
+      new Promise<void>((r) => requestAnimationFrame(() => r()));
+    try {
+      // 1) Compile shader programs up front (KHR_parallel_shader_compile where
+      //    supported) so the first render() doesn't stall on ~20 material
+      //    variants + the log-depth buffer.
+      onProgress?.("compiling shaders", 0);
+      await this.renderer.compileAsync(this.scene, this.camera);
+
+      // 2) Pre-sample every orbit polyline under a per-chunk time budget,
+      //    yielding between chunks. Without this all lines sample in frame 1
+      //    (~6k ephemeris evals) and freeze the tab.
+      const jdNow = dateToJd(new Date(store.getState().timeMs));
+      const defs = BODIES.filter((d) => d.kind !== "star" && d.kind !== "moon");
+      let i = 0;
+      while (i < defs.length) {
+        const start = performance.now();
+        do {
+          const entry = this.orbitLines.get(defs[i].id);
+          try {
+            if (entry)
+              entry.path = sampleOrbitPath(this.eph, defs[i], jdNow, ORBIT_SAMPLES);
+          } catch {
+            /* leave this line for render() to sample lazily */
+          }
+          i++;
+        } while (i < defs.length && performance.now() - start < WARMUP_CHUNK_MS);
+        onProgress?.("charting orbits", i / defs.length);
+        if (i < defs.length) await nextFrame();
+      }
+    } catch (e) {
+      console.warn("scene warmup skipped", e);
+    }
+  }
+
   focus(bodyId: string) {
     this.controls.focus(bodyId);
   }
@@ -380,20 +445,31 @@ export class Scene3D {
   ) {
     const g = effectiveAccelG(s.accelG, s.honesty);
     const key = `${s.originId}|${g}|${Math.floor(s.timeMs / TT_BUCKET_MS)}`;
-    if (key === this.ttKey) return;
-    this.ttKey = key;
-    const date = new Date(s.timeMs);
-    for (const v of this.visuals.values()) {
-      if (v.def.kind === "star" || v.def.id === s.originId) {
-        v.timeEl.textContent = v.def.id === s.originId ? "◉ origin" : "";
-        continue;
+    if (key !== this.ttKey) {
+      // Inputs changed: set the free labels (origin/star) now and queue the
+      // rest. Each planFlight is ~25-38 ephemeris evals; running all ~25 in one
+      // frame is the frame-1 storm, so we drain a few per frame instead.
+      this.ttKey = key;
+      this.ttOrigin = s.originId;
+      this.ttG = g;
+      this.ttDate = new Date(s.timeMs);
+      this.ttQueue = [];
+      for (const v of this.visuals.values()) {
+        if (v.def.kind === "star" || v.def.id === s.originId) {
+          v.timeEl.textContent = v.def.id === s.originId ? "◉ origin" : "";
+          continue;
+        }
+        this.ttQueue.push(v);
       }
-      if (!this.eph.exists(v.def.id, date)) {
+    }
+    for (let n = Math.min(TT_PER_FRAME, this.ttQueue.length); n > 0; n--) {
+      const v = this.ttQueue.shift()!;
+      if (!this.eph.exists(v.def.id, this.ttDate)) {
         v.timeEl.textContent = "";
         continue;
       }
       try {
-        const plan = planFlight(this.eph, s.originId, v.def.id, date, g);
+        const plan = planFlight(this.eph, this.ttOrigin, v.def.id, this.ttDate, this.ttG);
         v.timeEl.textContent = fmtDuration(plan.travelTimeSec);
       } catch {
         v.timeEl.textContent = "";
@@ -563,17 +639,42 @@ export class Scene3D {
     this.sunLight.position.set(-originKm.x, -originKm.y, -originKm.z);
 
     // Orbit lines: refresh samples when the clock drifts, rewrite
-    // origin-relative coords every frame.
+    // origin-relative coords every frame. Resampling is budgeted
+    // (ORBIT_RESAMPLE_PER_FRAME, stalest first) so a large timeline scrub or a
+    // cold start can't resample every line in one frame and hitch.
+    let stale: Array<{ def: (typeof BODIES)[number]; drift: number }> | null = null;
     for (const def of BODIES) {
       if (def.kind === "star" || def.kind === "moon") continue;
       const entry = this.orbitLines.get(def.id)!;
       const exists = this.eph.exists(def.id, date);
       entry.line.visible = exists;
       if (!exists) continue;
-      if (Math.abs(entry.path.jdCenter - jdNow) > ORBIT_CACHE_DAYS) {
-        entry.path = sampleOrbitPath(this.eph, def, jdNow, ORBIT_SAMPLES);
+      const drift = Math.abs(entry.path.jdCenter - jdNow);
+      if (drift > ORBIT_CACHE_DAYS) (stale ||= []).push({ def, drift });
+    }
+    if (stale) {
+      // stalest first: the most-wrong lines get corrected soonest
+      stale.sort((a, b) => b.drift - a.drift);
+      for (let k = 0; k < stale.length && k < ORBIT_RESAMPLE_PER_FRAME; k++) {
+        const { def } = stale[k];
+        this.orbitLines.get(def.id)!.path = sampleOrbitPath(
+          this.eph,
+          def,
+          jdNow,
+          ORBIT_SAMPLES
+        );
       }
+    }
+    for (const def of BODIES) {
+      if (def.kind === "star" || def.kind === "moon") continue;
+      const entry = this.orbitLines.get(def.id)!;
+      if (!entry.line.visible) continue;
       const src = entry.path.pts;
+      if (src.length === 0) {
+        // never sampled (warmup skipped/failed): hide until a resample turn
+        entry.line.visible = false;
+        continue;
+      }
       const attr = entry.line.geometry.attributes.position as THREE.BufferAttribute;
       const dst = attr.array as Float32Array;
       for (let i = 0; i < src.length; i += 3) {
