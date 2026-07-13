@@ -46,6 +46,9 @@ const ORBIT_RESAMPLE_PER_FRAME = 2;
 /** render(): max travel-time planFlights to run per frame */
 const TT_PER_FRAME = 2;
 const AU_KM = 149_597_870.7;
+
+// Earth clouds drift ~15% faster than the surface — weather, not a decal.
+const CLOUD_DRIFT = 1.15;
 /** pseudo focus id: midpoint of the planned route */
 const ROUTE_FOCUS = "__route__";
 /** ride-start seat: tuned so the intercept sits inside the FOV (verified) */
@@ -622,6 +625,9 @@ export class Scene3D {
         // +Z-pole in their body frame, so spin goes on rotation.z.
         if (v.def.model) v.mesh.rotation.z = spin;
         else v.mesh.rotation.y = spin;
+        // Earth's clouds are a separate shell; drift them slightly faster than
+        // the surface so weather reads as alive rather than pasted-on.
+        if (v.clouds) v.clouds.rotation.y = spin * CLOUD_DRIFT;
       }
       // Earth's day/night shader tracks the real sun direction
       if (v.mesh) {

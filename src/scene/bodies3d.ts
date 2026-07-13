@@ -63,6 +63,8 @@ export interface BodyVisual {
   label: CSS2DObject;
   /** second label line: travel time from the planner origin */
   timeEl: HTMLSpanElement;
+  /** Earth-only: separate cloud shell, spun independently in the loop */
+  clouds?: THREE.Mesh;
 }
 
 let glowTex: THREE.Texture | null = null;
@@ -363,6 +365,7 @@ export function buildBodies(
       clouds.rotation.x = Math.PI / 2;
       clouds.name = "clouds";
       group.add(clouds);
+      visual.clouds = clouds;
     }
     // sun corona glow
     if (def.kind === "star") {
