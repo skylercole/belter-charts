@@ -17,7 +17,7 @@ export function mountTimebar(root: HTMLElement) {
     </select>
     <input id="scrub" type="range" min="${ERA_START_MS}" max="${ERA_END_MS}" step="3600000" />
     <span id="clock"></span>
-    <button id="traffic-btn" data-tip="toggle ambient system traffic (Miller's plot)" data-tip-pos="left" aria-label="toggle traffic"></button>
+    <button id="traffic-btn" data-tip="toggle ambient system traffics" data-tip-pos="left" aria-label="toggle traffic"></button>
   `;
 
   const play = root.querySelector<HTMLButtonElement>("#play")!;
